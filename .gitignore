@@ -2,6 +2,7 @@ node_modules
 *.vim
 .env*
 *.mp4
+claude
 exercises/learn.md
 node_modules
 *.vim
