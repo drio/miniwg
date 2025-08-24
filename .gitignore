@@ -2,7 +2,11 @@ node_modules
 *.vim
 .env*
 *.mp4
-learn.md
+exercises/learn.md
+node_modules
+*.vim
+.env*
+*.mp4
 node_modules
 *.vim
 .env*
