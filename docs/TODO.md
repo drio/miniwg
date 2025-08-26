@@ -1,3 +1,42 @@
+## NOTES and TODO
+
+- [ ] Add all crypto primitives
+- [ ] Handshake
+
+* Phase 1: Message Foundation (messages.go)
+
+  1. Define message structs - HandshakeInitiation, HandshakeResponse, TransportData
+  2. Binary encoding/decoding - Marshal structs to bytes and back
+
+* Phase 2: Handshake Steps (handshake.go)
+
+  3. Create initiation - Generate ephemeral keys, encrypt static key + timestamp
+  4. Process initiation - Decrypt, validate timestamp, derive shared state
+  5. Create response - Generate ephemeral, encrypt empty payload
+  6. Process response - Decrypt, complete handshake state
+
+* Phase 3: Session Establishment
+
+  7. Transport key derivation - Final step: chaining_key → send/recv keys
+  8. Integration test - Two MiniWG instances complete full handshake
+
+### The Flow with Key Derivation:
+
+  1. Initiator: Create handshake initiation → send to responder
+  2. Responder: Process handshake initiation → derive shared state
+  3. Responder: Create handshake response → send to initiator
+  4. Initiator: Process handshake response → derive shared state
+  5. Both sides: Derive transport keys from final chaining key
+  6. Both sides: Set hasSession = true, reset nonces to 0
+  7. Transport: Now both can encrypt/decrypt data packets
+
+The handshake creates two shared secrets - one for each direction of traffic:
+Establish symmetric encryption keys for fast data transport.
+
+The complex Noise_IK dance is just the secure way to get from static public
+keys to shared transport encryption keys.
+
+
 ## Step 1-2: Main structs
 
 Create main.go with core types:
