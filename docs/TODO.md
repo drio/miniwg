@@ -1,7 +1,8 @@
-## NOTES and TODO
+# NOTES and TODO
 
-- [ ] Add all crypto primitives
-- [ ] Handshake
+
+1. [ ] Add all crypto primitives
+2. [ ] Handshake
 
 * Phase 1: Message Foundation (messages.go)
 
@@ -19,6 +20,191 @@
 
   7. Transport key derivation - Final step: chaining_key → send/recv keys
   8. Integration test - Two MiniWG instances complete full handshake
+
+3. Routines to send read packets
+4. Basic timer integration
+5. Main event loopo
+6. TUN/UDP interface integration
+7. Simple testing.
+
+
+
+### CIA
+
+#### C - Confidentiality (what you called "encryption")
+
+Ensures data is only readable by authorized parties
+WireGuard achieves this through strong encryption algorithms
+
+#### I - Integrity
+
+Ensures data hasn't been tampered with or corrupted during transmission
+WireGuard uses cryptographic hashing to detect any modifications to packets
+
+#### A - Authentication
+
+Verifies the identity of communicating parties
+WireGuard uses public-key cryptography where each peer has a unique key pair
+
+Using:
+
+Confidentiality through ChaCha20 encryption
+Integrity through Poly1305 authentication codes that detect tampering
+Authentication through Curve25519 public keys that verify peer identities
+
+
+### The whole data flow in practice:
+
+Alice and Bob want to establish 
+
+#### Step 1: Alice Creates Handshake Initiation
+
+```go
+  // Alice does:
+  ephemeral_priv, ephemeral_pub := generateKeypair()  // Fresh keys for this session
+
+  // Start the cryptographic ledger
+  chaining_key := HASH("Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s")
+  hash := HASH(chaining_key + "WireGuard v1..." + bob_pub)
+
+  // Mix ephemeral into the ledger
+  chaining_key = kdf1(chaining_key, ephemeral_pub)
+  hash = HASH(hash + ephemeral_pub)
+
+  // Create shared secret with Bob's static key and encrypt Alice's identity
+  shared1 := DH(ephemeral_priv, bob_pub)
+  chaining_key, encrypt_key := kdf2(chaining_key, shared1)
+  encrypted_static := AEAD(encrypt_key, 0, alice_pub, hash)
+
+  // Encrypt timestamp to prevent replay
+  shared2 := DH(alice_priv, bob_pub)
+  chaining_key, encrypt_key := kdf2(chaining_key, shared2)
+  encrypted_timestamp := AEAD(encrypt_key, 0, current_time(), hash)
+
+  msg := HandshakeInitiation{
+      Ephemeral: ephemeral_pub,
+      Static: encrypted_static,      // Only Bob can decrypt this
+      Timestamp: encrypted_timestamp // Prevents replay attacks
+  }
+  send_UDP(msg, bob_address)
+```
+
+#### Step 2: Bob Processes Initiation
+
+Basically here Bob has to: 
+1. Crypto ledger syncronization
+2. Identity Authentication
+   Purpose: Prove Alice is who she claims to be. 
+   Only someone with Alice's private key could create a message that decrypts to her known public key.
+3. Replay Attack Prevention
+   timestamp := chachaPolyDecrypt(decrypt_key, 0, msg.Timestamp, hash)
+   if validateTimestamp(timestamp, last_timestamp_from_alice) == false { reject }
+   Purpose: Ensure this is a fresh handshake, not a replayed old message.
+4. State Synchronization Verification 
+    (syncing the cryptographic state with Alice so we are ready to continue with the next step in the protocol)
+  After all operations, Bob has:
+  - Same chaining_key as Alice ✓
+  - Same hash state as Alice ✓
+  - Verified Alice's identity ✓
+  - Confirmed message freshness ✓
+
+```go
+  // Bob receives the message and does the SAME operations:
+  chaining_key := HASH("Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s")
+  hash := HASH(chaining_key + "WireGuard v1..." + bob_pub)
+
+  // Mix Alice's ephemeral (from message)
+  chaining_key = kdf1(chaining_key, msg.Ephemeral)
+  hash = HASH(hash + msg.Ephemeral)
+
+  // Derive same shared secret and decrypt Alice's identity
+  shared1 := DH(bob_priv, msg.Ephemeral)  // Same as Alice's shared1!
+  chaining_key, decrypt_key := kdf2(chaining_key, shared1)
+  alice_pub_decrypted := AEAD_decrypt(decrypt_key, 0, msg.Static, hash)
+
+  // Verify Alice is who we expect
+  if alice_pub_decrypted != alice_pub_we_know { reject }
+
+  // Decrypt and validate timestamp
+  shared2 := DH(bob_priv, alice_pub)  // Same as Alice's shared2!
+  chaining_key, decrypt_key := kdf2(chaining_key, shared2)
+  timestamp := AEAD_decrypt(decrypt_key, 0, msg.Timestamp, hash)
+
+  if timestamp <= last_timestamp_from_alice { reject } // Replay protection
+
+  // Bob now has the SAME chaining_key as Alice!
+```
+
+####  Step 3: Bob Creates Handshake Response
+
+```go
+  // Bob generates his ephemeral and completes the handshake
+  bob_ephemeral_priv, bob_ephemeral_pub := generateKeypair()
+
+  // Add Bob's ephemeral to the ledger
+  chaining_key = kdf1(chaining_key, bob_ephemeral_pub)
+  hash = HASH(hash + bob_ephemeral_pub)
+
+  // Final key mixing - this creates the transport keys!
+  shared3 := DH(bob_ephemeral_priv, msg.Ephemeral)  // Ephemeral-ephemeral
+  chaining_key = kdf1(chaining_key, shared3)
+
+  shared4 := DH(bob_ephemeral_priv, alice_pub)  // Bob's ephemeral + Alice's static
+  chaining_key = kdf1(chaining_key, shared4)
+
+  // Derive the final transport keys
+  bob_send_key, bob_recv_key := kdf2(chaining_key, empty)
+
+  response := HandshakeResponse{
+      Ephemeral: bob_ephemeral_pub,
+      Empty: AEAD(temp_key, 0, "", hash)  // Proves Bob can encrypt
+  }
+  send_UDP(response, alice_address)
+```
+
+#### Step 4: Alice Processes Response
+
+```go
+  // Alice does the same final mixing
+  shared3 := DH(ephemeral_priv, msg.Ephemeral)  // Same as Bob's!
+  shared4 := DH(alice_priv, msg.Ephemeral)      // Same as Bob's!
+  // ... same chaining operations ...
+
+  alice_send_key, alice_recv_key := kdf2(chaining_key, empty)
+
+  // Key relationship:
+  // alice_send_key == bob_recv_key  ✓
+  // alice_recv_key == bob_send_key  ✓
+```
+
+####  Step 5: Send Encrypted Data
+
+```go
+  // Alice wants to send "Hello Bob!"
+  plaintext := []byte("Hello Bob!")
+  encrypted := chachaPolyEncrypt(alice_send_key, counter=0, plaintext, "")
+
+  transport_msg := MarshalTransportData(bob_session_id, counter=0, encrypted)
+  send_UDP(transport_msg, bob_address)
+
+  // Bob receives and decrypts
+  receiver, counter, ciphertext := UnmarshalTransportData(received_bytes)
+  plaintext := chachaPolyDecrypt(bob_recv_key, counter, ciphertext, "")
+  // plaintext == "Hello Bob!" ✓
+```
+
+Why This Works:
+
+1. Both peers build identical ledgers - Each crypto operation is done by both sides
+2. The chaining key accumulates all secrets - It contains contributions from both static keys, both ephemeral keys, and all DH
+results
+3. Transport keys are swapped - What Alice uses to send, Bob uses to receive
+4. Perfect forward secrecy - Ephemeral keys are deleted after handshake
+
+The beautiful part: After the handshake dance, both peers have the same final chaining_key, which they use to derive the same
+transport encryption keys!
+
+
 
 ### The Flow with Key Derivation:
 
