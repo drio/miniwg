@@ -7,9 +7,9 @@
     - [x]  Generate ephemeral keys, encrypt static key + timestamp
 
 2. Process handshake initiation (responder side)
-    - Receive & validate the first message
-    - Decrypt static key, verify timestamp, derive shared state
-    - Sync the cryptographic ledger with initiator (ensure both sides have identical cryptographic state before proceeding.)
+    - [x] Receive & validate the first message
+    - [x] Decrypt static key, verify timestamp, derive shared state
+    - [x] Sync the cryptographic ledger with initiator (ensure both sides have identical cryptographic state before proceeding.)
 
 3. Create handshake response (responder side)
     - Generate responder's ephemeral keys
