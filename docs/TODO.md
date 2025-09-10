@@ -1,3 +1,27 @@
+
+# Tasks
+
+##  4 Parts of WireGuard Handshake Protocol:
+
+1. Create handshake initiation (initiator side)
+    - [x]  Generate ephemeral keys, encrypt static key + timestamp
+
+2. Process handshake initiation (responder side)
+    - Receive & validate the first message
+    - Decrypt static key, verify timestamp, derive shared state
+    - Sync the cryptographic ledger with initiator (ensure both sides have identical cryptographic state before proceeding.)
+
+3. Create handshake response (responder side)
+    - Generate responder's ephemeral keys
+    - Encrypt empty payload, complete key derivation
+    - Send second message back
+
+4. Process handshake response (initiator side)
+    - Receive & validate the second message
+    - Complete final key mixing, derive transport keys
+    - Both sides now have identical send/recv keys
+
+
 # NOTES and TODO
 
 
