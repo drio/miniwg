@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net"
 	"time"
 
@@ -36,5 +37,9 @@ type MiniWG struct {
 }
 
 func main() {
+	// Test the handshake initiation
+	if err := testHandshakeInitiation(); err != nil {
+		log.Fatalf("Handshake test failed: %v", err)
+	}
 }
 

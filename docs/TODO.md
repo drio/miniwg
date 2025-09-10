@@ -1,25 +1,25 @@
 # NOTES and TODO
 
 
-1. [ ] Add all crypto primitives
-2. [ ] Handshake
+- [x] Add all crypto primitives
+- [x] Handshake
 
 * Phase 1: Message Foundation (messages.go)
 
-  1. Define message structs - HandshakeInitiation, HandshakeResponse, TransportData
-  2. Binary encoding/decoding - Marshal structs to bytes and back
+  - [x] 1. Define message structs - HandshakeInitiation, HandshakeResponse, TransportData
+  - [x] 2. Binary encoding/decoding - Marshal structs to bytes and back
 
 * Phase 2: Handshake Steps (handshake.go)
 
-  3. Create initiation - Generate ephemeral keys, encrypt static key + timestamp
-  4. Process initiation - Decrypt, validate timestamp, derive shared state
-  5. Create response - Generate ephemeral, encrypt empty payload
-  6. Process response - Decrypt, complete handshake state
+- [ ] Create initiation - Generate ephemeral keys, encrypt static key + timestamp
+- [ ] CProcess initiation - Decrypt, validate timestamp, derive shared state
+- [ ] CCreate response - Generate ephemeral, encrypt empty payload
+- [ ] CProcess response - Decrypt, complete handshake state
 
 * Phase 3: Session Establishment
 
-  7. Transport key derivation - Final step: chaining_key → send/recv keys
-  8. Integration test - Two MiniWG instances complete full handshake
+- [ ] Transport key derivation - Final step: chaining_key → send/recv keys
+- [ ] Integration test - Two MiniWG instances complete full handshake
 
 3. Routines to send read packets
 4. Basic timer integration
