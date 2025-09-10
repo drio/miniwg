@@ -12,9 +12,9 @@
     - [x] Sync the cryptographic ledger with initiator (ensure both sides have identical cryptographic state before proceeding.)
 
 3. Create handshake response (responder side)
-    - Generate responder's ephemeral keys
-    - Encrypt empty payload, complete key derivation
-    - Send second message back
+    - [x] Generate responder's ephemeral keys
+    - [x] Encrypt empty payload, complete key derivation
+    - [x] Send second message back
 
 4. Process handshake response (initiator side)
     - Receive & validate the second message
