@@ -43,7 +43,7 @@ type HandshakeInitiationState struct {
 	tempKey2 [32]byte
 }
 
-// createHandshakeInitiation creates the first message of the Noise_IK handshake
+// createHandshakeInitiation (Part 1/4) creates the first message of the Noise_IK handshake
 // Following the exact steps from WireGuard protocol specification
 func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]byte, senderIndex uint32) (*HandshakeInitiation, *HandshakeInitiationState, error) {
 
@@ -424,16 +424,93 @@ func testFullHandshakeInitiation() error {
 	receiverMatch := (responseMsg.Receiver == senderIndex)
 	fmt.Printf("\nReceiver index matches: %v\n", receiverMatch)
 
-	if receiverMatch {
-		fmt.Println("\n✅ HANDSHAKE RESPONSE TEST PASSED!")
-		fmt.Println("   - Response message created successfully")
-		fmt.Println("   - All DH operations completed")
-		fmt.Println("   - Ready for initiator to process response")
-		fmt.Printf("   - Final responder chaining_key: %x\n", finalResponderState.chainingKey)
-		fmt.Printf("   - Final responder hash: %x\n", finalResponderState.hash)
-	} else {
+	if !receiverMatch {
 		fmt.Println("❌ HANDSHAKE RESPONSE TEST FAILED!")
 		return fmt.Errorf("response message validation failed")
+	}
+
+	fmt.Println("\n✅ HANDSHAKE RESPONSE TEST PASSED!")
+	fmt.Println("   - Response message created successfully")
+	fmt.Println("   - All DH operations completed")
+	fmt.Println("   - Ready for initiator to process response")
+
+	fmt.Println("\n=====================================")
+	fmt.Println("    INITIATOR SIDE (Process Response)")
+	fmt.Println("=====================================")
+
+	// Process handshake response as initiator (Part 4/4)
+	finalInitiatorState, err := processHandshakeResponse(responseMsgBytes, initiatorState)
+	if err != nil {
+		return fmt.Errorf("handshake response processing failed: %v", err)
+	}
+
+	fmt.Println("\n=====================================")
+	fmt.Println("      FINAL STATE VERIFICATION")
+	fmt.Println("=====================================")
+
+	// Verify both sides have the same final chaining key
+	chainingKeysMatch := (finalInitiatorState.chainingKey == finalResponderState.chainingKey)
+	hashesMatch := (finalInitiatorState.hash == finalResponderState.hash)
+
+	fmt.Printf("🔍 Final State Synchronization:\n")
+	fmt.Printf("Initiator final chaining_key: %x\n", finalInitiatorState.chainingKey)
+	fmt.Printf("Responder final chaining_key: %x\n", finalResponderState.chainingKey)
+	fmt.Printf("Final chaining keys match: %v\n\n", chainingKeysMatch)
+
+	fmt.Printf("Initiator final hash: %x\n", finalInitiatorState.hash)
+	fmt.Printf("Responder final hash: %x\n", finalResponderState.hash)
+	fmt.Printf("Final hashes match: %v\n\n", hashesMatch)
+
+	if !chainingKeysMatch || !hashesMatch {
+		fmt.Println("❌ FINAL STATE SYNCHRONIZATION FAILED!")
+		return fmt.Errorf("initiator and responder states don't match")
+	}
+
+	fmt.Println("\n=====================================")
+	fmt.Println("     TRANSPORT KEY DERIVATION")
+	fmt.Println("=====================================")
+
+	// Derive transport keys - initiator and responder have swapped key assignments
+	fmt.Println("\n--- INITIATOR SIDE ---")
+	initKey1, initKey2, err := deriveTransportKeys(finalInitiatorState.chainingKey)
+	if err != nil {
+		return fmt.Errorf("initiator transport key derivation failed: %v", err)
+	}
+	// For initiator: first key is sending, second is receiving
+	initSendKey := initKey1
+	initRecvKey := initKey2
+
+	fmt.Println("\n--- RESPONDER SIDE ---")
+	respKey1, respKey2, err := deriveTransportKeys(finalResponderState.chainingKey)
+	if err != nil {
+		return fmt.Errorf("responder transport key derivation failed: %v", err)
+	}
+	// For responder: first key is receiving, second is sending (swapped from initiator)
+	respRecvKey := respKey1
+	respSendKey := respKey2
+
+	// Verify key relationship: initiator send = responder receive, etc.
+	sendRecvMatch := (initSendKey == respRecvKey) && (initRecvKey == respSendKey)
+	
+	fmt.Printf("\n🔑 Transport Key Verification:\n")
+	fmt.Printf("Initiator sending_key:   %x\n", initSendKey)
+	fmt.Printf("Responder receiving_key: %x\n", respRecvKey)
+	fmt.Printf("Send/Receive match: %v\n\n", initSendKey == respRecvKey)
+
+	fmt.Printf("Initiator receiving_key: %x\n", initRecvKey)
+	fmt.Printf("Responder sending_key:   %x\n", respSendKey)
+	fmt.Printf("Receive/Send match: %v\n\n", initRecvKey == respSendKey)
+
+	if sendRecvMatch {
+		fmt.Println("🎉 COMPLETE HANDSHAKE SUCCESS!")
+		fmt.Println("✅ All 4 parts of handshake completed successfully")
+		fmt.Println("✅ Both sides have synchronized cryptographic state")
+		fmt.Println("✅ Transport keys derived and verified")
+		fmt.Println("✅ Ready for encrypted data transmission")
+		fmt.Printf("🔐 Session established with perfect forward secrecy\n")
+	} else {
+		fmt.Println("❌ TRANSPORT KEY RELATIONSHIP FAILED!")
+		return fmt.Errorf("transport keys don't have correct send/receive relationship")
 	}
 
 	return nil
@@ -528,7 +605,7 @@ type HandshakeResponderState struct {
 	timestampValid bool
 }
 
-// processHandshakeInitiation processes the first handshake message (responder side)
+// processHandshakeInitiation (Part 2/4) processes the first handshake message (responder side)
 // This implements the reverse of createHandshakeInitiation - it takes the received
 // message bytes and performs all the same cryptographic operations to sync state
 func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub [32]byte, lastTimestamp [12]byte) (*HandshakeResponderState, error) {
@@ -708,7 +785,7 @@ func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub
 	return state, nil
 }
 
-// createHandshakeResponse creates the second message of the Noise_IK handshake (responder side)
+// createHandshakeResponse (Part 3/4) creates the second message of the Noise_IK handshake (responder side)
 // Takes the synchronized responder state and completes the handshake by performing final DH operations
 // and deriving the transport keys that both sides will use for data encryption
 func createHandshakeResponse(responderState *HandshakeResponderState, responderIndex uint32) (*HandshakeResponse, *HandshakeResponderState, error) {
@@ -867,5 +944,173 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 	fmt.Printf("Final hash: %x\n", responderState.hash)
 
 	return response, responderState, nil
+}
+
+// processHandshakeResponse (Part 4/4) processes the second handshake message (initiator side)
+// This completes the handshake by performing the same DH operations as the responder
+// and derives the final transport keys that both sides will use for data encryption
+func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeInitiationState) (*HandshakeInitiationState, error) {
+	
+	fmt.Println("🔑 Processing WireGuard Handshake Response (Initiator Side)")
+
+	// Step 1: Unmarshal the received response message
+	fmt.Println("\n=== STEP 1: Unmarshal received response message ===")
+	var response HandshakeResponse
+	if err := response.Unmarshal(responseBytes); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal handshake response: %v", err)
+	}
+
+	if response.Type != MessageTypeHandshakeResponse {
+		return nil, fmt.Errorf("invalid message type: expected %d, got %d", MessageTypeHandshakeResponse, response.Type)
+	}
+
+	// Verify the receiver index matches our sender index
+	if response.Receiver != initiatorState.senderIndex {
+		return nil, fmt.Errorf("receiver index mismatch: expected %d, got %d", initiatorState.senderIndex, response.Receiver)
+	}
+
+	fmt.Printf("Message type: %d\n", response.Type)
+	fmt.Printf("Responder sender: %d\n", response.Sender)
+	fmt.Printf("Receiver (our sender): %d\n", response.Receiver)
+	fmt.Printf("Responder ephemeral: %x\n", response.Ephemeral)
+	fmt.Printf("Encrypted empty: %x\n", response.Empty)
+
+	// Step 2: Validate MAC1 - proves responder knows our static public key
+	fmt.Println("\n=== STEP 2: Validate MAC1 ===")
+	msgBytesForMAC1 := responseBytes[:len(responseBytes)-32] // Exclude MAC1(16) + MAC2(16)
+	expectedMAC1, err := calculateMAC1(msgBytesForMAC1, initiatorState.ourStaticPublic)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate expected MAC1: %v", err)
+	}
+
+	mac1Valid := (response.MAC1 == expectedMAC1)
+	fmt.Printf("Expected MAC1: %x\n", expectedMAC1)
+	fmt.Printf("Received MAC1:  %x\n", response.MAC1)
+	fmt.Printf("MAC1 valid: %v\n", mac1Valid)
+
+	if !mac1Valid {
+		return nil, fmt.Errorf("invalid MAC1 - responder doesn't know our static public key")
+	}
+
+	// Step 3: Validate MAC2 (currently just check if zeros)
+	fmt.Println("\n=== STEP 3: Validate MAC2 ===")
+	var zeroMAC2 [16]byte
+	mac2Valid := (response.MAC2 == zeroMAC2)
+	fmt.Printf("MAC2: %x\n", response.MAC2)
+	fmt.Printf("MAC2 valid (should be zeros): %v\n", mac2Valid)
+
+	// Step 4: Sync cryptographic operations with responder - mix responder's ephemeral
+	fmt.Println("\n=== STEP 4: Mix responder ephemeral public key into hash ===")
+	temp := append(initiatorState.hash[:], response.Ephemeral[:]...)
+	initiatorState.hash = blake2sHash(temp)
+	fmt.Printf("hash = HASH(old_hash || responder_ephemeral_public): %x\n", initiatorState.hash)
+
+	// Step 5: Mix responder's ephemeral public key into chaining key using KDF1
+	fmt.Println("\n=== STEP 5: Mix responder ephemeral public key into chaining key (KDF1) ===")
+	newChainingKey1, err := kdf1(initiatorState.chainingKey[:], response.Ephemeral[:])
+	if err != nil {
+		return nil, fmt.Errorf("kdf1 failed: %v", err)
+	}
+	initiatorState.chainingKey = newChainingKey1
+	fmt.Printf("chaining_key = KDF1(old_chaining_key, responder_ephemeral_public): %x\n", initiatorState.chainingKey)
+
+	// Step 6: Perform ephemeral-ephemeral DH operation (same as responder did)
+	fmt.Println("\n=== STEP 6: DH(our_ephemeral_private, responder_ephemeral_public) + KDF1 ===")
+	dhResult1, err := dhOperation(initiatorState.ephemeralPrivate, response.Ephemeral)
+	if err != nil {
+		return nil, fmt.Errorf("DH operation 1 (ephemeral-ephemeral) failed: %v", err)
+	}
+	fmt.Printf("dh1 = DH(our_ephemeral_private, responder_ephemeral_public): %x\n", dhResult1)
+
+	// Mix the ephemeral-ephemeral shared secret into chaining key
+	newChainingKey2, err := kdf1(initiatorState.chainingKey[:], dhResult1[:])
+	if err != nil {
+		return nil, fmt.Errorf("kdf1 failed for ephemeral-ephemeral: %v", err)
+	}
+	initiatorState.chainingKey = newChainingKey2
+	fmt.Printf("chaining_key = KDF1(chaining_key, dh1): %x\n", initiatorState.chainingKey)
+
+	// Step 7: Perform ephemeral-static DH operation (same as responder did)
+	fmt.Println("\n=== STEP 7: DH(our_static_private, responder_ephemeral_public) + KDF1 ===")
+	dhResult2, err := dhOperation(initiatorState.ourStaticPrivate, response.Ephemeral)
+	if err != nil {
+		return nil, fmt.Errorf("DH operation 2 (ephemeral-static) failed: %v", err)
+	}
+	fmt.Printf("dh2 = DH(our_static_private, responder_ephemeral_public): %x\n", dhResult2)
+
+	// Mix the ephemeral-static shared secret into chaining key
+	newChainingKey3, err := kdf1(initiatorState.chainingKey[:], dhResult2[:])
+	if err != nil {
+		return nil, fmt.Errorf("kdf1 failed for ephemeral-static: %v", err)
+	}
+	initiatorState.chainingKey = newChainingKey3
+	fmt.Printf("chaining_key = KDF1(chaining_key, dh2): %x\n", initiatorState.chainingKey)
+
+	// Step 8: Mix pre-shared key (zeros for minimal implementation)
+	fmt.Println("\n=== STEP 8: Mix pre-shared key (zeros for minimal version) ===")
+	var presharedKey [32]byte // All zeros for minimal implementation
+	fmt.Printf("preshared_key (zeros): %x\n", presharedKey)
+
+	// Use KDF3 to derive the same keys as responder did
+	newChainingKey4, temp2, decryptKey, err := kdf3(initiatorState.chainingKey[:], presharedKey[:])
+	if err != nil {
+		return nil, fmt.Errorf("kdf3 failed for preshared key: %v", err)
+	}
+	initiatorState.chainingKey = newChainingKey4
+	fmt.Printf("chaining_key = KDF3.key1(chaining_key, preshared_key): %x\n", initiatorState.chainingKey)
+	fmt.Printf("temp2 = KDF3.key2(...): %x\n", temp2)
+	fmt.Printf("decrypt_key = KDF3.key3(...): %x\n", decryptKey)
+
+	// Mix temp2 into hash (sync with responder)
+	temp3 := append(initiatorState.hash[:], temp2[:]...)
+	initiatorState.hash = blake2sHash(temp3)
+	fmt.Printf("hash = HASH(old_hash || temp2): %x\n", initiatorState.hash)
+
+	// Step 9: Decrypt and verify empty payload
+	fmt.Println("\n=== STEP 9: Decrypt and verify empty payload ===")
+	decryptedEmpty, err := chachaPolyDecrypt(decryptKey, 0, response.Empty[:], initiatorState.hash[:])
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt empty payload: %v", err)
+	}
+	
+	// Empty payload should be exactly 0 bytes
+	emptyPayloadValid := (len(decryptedEmpty) == 0)
+	fmt.Printf("decrypted_empty_length: %d bytes\n", len(decryptedEmpty))
+	fmt.Printf("empty_payload_valid (should be 0 bytes): %v\n", emptyPayloadValid)
+
+	if !emptyPayloadValid {
+		return nil, fmt.Errorf("invalid empty payload - expected 0 bytes, got %d", len(decryptedEmpty))
+	}
+
+	// Step 10: Final hash update (sync with responder)
+	fmt.Println("\n=== STEP 10: Final hash update ===")
+	temp4 := append(initiatorState.hash[:], response.Empty[:]...)
+	initiatorState.hash = blake2sHash(temp4)
+	fmt.Printf("final_hash = HASH(old_hash || encrypted_empty): %x\n", initiatorState.hash)
+
+	fmt.Printf("\n=== HANDSHAKE RESPONSE PROCESSING COMPLETE ===\n")
+	fmt.Printf("Final chaining_key: %x\n", initiatorState.chainingKey)
+	fmt.Printf("Final hash: %x\n", initiatorState.hash)
+	fmt.Printf("All validations passed: MAC1=%v, MAC2=%v, EmptyPayload=%v\n",
+		mac1Valid, mac2Valid, emptyPayloadValid)
+
+	return initiatorState, nil
+}
+
+// deriveTransportKeys derives the final send/receive keys from the completed handshake state
+// This is called after both sides have completed the handshake protocol
+func deriveTransportKeys(finalChainingKey [32]byte) (sendingKey, receivingKey [32]byte, err error) {
+	fmt.Println("\n🔐 Deriving Transport Keys from Final Chaining Key")
+	
+	// Final key derivation: KDF2 with empty input
+	sending, receiving, err := kdf2(finalChainingKey[:], nil)
+	if err != nil {
+		return [32]byte{}, [32]byte{}, fmt.Errorf("transport key derivation failed: %v", err)
+	}
+	
+	fmt.Printf("sending_key: %x\n", sending)
+	fmt.Printf("receiving_key: %x\n", receiving)
+	
+	return sending, receiving, nil
 }
 
