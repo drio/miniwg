@@ -194,7 +194,7 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 	state.hash = blake2sHash(temp5)
 	fmt.Printf("final_hash = HASH(old_hash || encrypted_timestamp): %x\n", state.hash)
 	
-	// Step 12: Create the message structure
+	// Step 12: Create the message structure with MAC calculations
 	fmt.Println("\n=== STEP 12: Create HandshakeInitiation message ===")
 	msg := &HandshakeInitiation{
 		Type:      MessageTypeHandshakeInitiation,
@@ -202,7 +202,7 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 		Ephemeral: state.ephemeralPublic,
 		Static:    state.encryptedStatic,
 		Timestamp: state.encryptedTimestamp,
-		// MAC1 and MAC2 will be calculated separately
+		// MAC1 and MAC2 will be calculated below
 	}
 	
 	fmt.Printf("Message type: %d\n", msg.Type)
@@ -210,6 +210,28 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 	fmt.Printf("Ephemeral: %x\n", msg.Ephemeral)
 	fmt.Printf("Static: %x\n", msg.Static)
 	fmt.Printf("Timestamp: %x\n", msg.Timestamp)
+	
+	// Step 13: Calculate MAC1 and MAC2
+	fmt.Println("\n=== STEP 13: Calculate MAC1 and MAC2 ===")
+	
+	// Marshal message without MACs to get bytes for MAC calculation
+	msgBytes := msg.Marshal()
+	msgBytesForMAC1 := msgBytes[:len(msgBytes)-32] // Exclude MAC1(16) + MAC2(16) = 32 bytes
+	
+	// Calculate MAC1
+	mac1, err := calculateMAC1(msgBytesForMAC1, state.peerStaticPublic)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to calculate MAC1: %v", err)
+	}
+	msg.MAC1 = mac1
+	fmt.Printf("MAC1: %x\n", msg.MAC1)
+	
+	// Calculate MAC2 (no cookie for now, so will be zeros)
+	msgBytes = msg.Marshal()
+	msgBytesForMAC2 := msgBytes[:len(msgBytes)-16] // Exclude MAC2(16) bytes
+	mac2 := calculateMAC2(msgBytesForMAC2, nil) // No cookie
+	msg.MAC2 = mac2
+	fmt.Printf("MAC2: %x\n", msg.MAC2)
 	
 	fmt.Printf("\n=== HANDSHAKE INITIATION COMPLETE ===\n")
 	fmt.Printf("Final chaining_key: %x\n", state.chainingKey)
@@ -269,4 +291,70 @@ func testHandshakeInitiation() error {
 	fmt.Printf("  - Final hash: %x\n", state.hash)
 	
 	return nil
+}
+
+// calculateMAC1 computes MAC1 for handshake messages
+// MAC1 = MAC(HASH(LABEL_MAC1 || peer_static_public), message_bytes)
+//
+// MAC1 Purpose and Security Properties:
+// - Authentication: Proves sender knows the responder's static public key
+// - DoS Protection: Prevents random/invalid packets from consuming CPU cycles
+// - Silence Property: Allows responder to remain silent to unauthorized senders
+// - Access Control: Only peers who know the public key can elicit any response
+// - Anti-Scanning: Makes WireGuard invisible to network scanners and port probes
+// - Always Required: Must be present and valid on ALL handshake messages
+//
+// Security Note: While the static public key isn't secret, knowing it proves
+// the sender already knows about this WireGuard endpoint, providing sufficient
+// proof of legitimacy within the threat model of staying stealthy.
+func calculateMAC1(messageBytes []byte, peerStaticPublic [32]byte) ([16]byte, error) {
+	var result [16]byte
+	
+	// Create MAC key: HASH(LABEL_MAC1 || peer_static_public)
+	labelMac1 := []byte(LABEL_MAC1) // "mac1----"
+	keyInput := append(labelMac1, peerStaticPublic[:]...)
+	macKey := blake2sHash(keyInput)
+	
+	// Calculate MAC1: MAC(mac_key, message_bytes)
+	mac1, err := blake2sMac(macKey[:], messageBytes)
+	if err != nil {
+		return result, fmt.Errorf("failed to calculate MAC1: %v", err)
+	}
+	
+	return mac1, nil
+}
+
+// calculateMAC2 computes MAC2 for handshake messages
+// MAC2 = MAC(cookie, message_bytes) OR zeros if no cookie
+//
+// MAC2 Purpose and Cookie System:
+// - DoS Mitigation: Used when responder is under heavy load
+// - Rate Limiting: Ties handshake messages to specific IP addresses
+// - Proof of IP Ownership: Cookie is MAC of sender's IP using responder's secret
+// - Load Shedding: Responder can reject messages without valid MAC2 when overloaded
+// - Normally Empty: Set to zeros unless sender has received a cookie reply
+//
+// Cookie Flow:
+// 1. Normal: MAC1=valid, MAC2=zeros → message processed
+// 2. Under load: MAC1=valid, MAC2=zeros → send cookie reply (don't process)  
+// 3. With cookie: MAC1=valid, MAC2=valid → message processed even under load
+//
+// This enables 1-RTT handshake in normal conditions while providing DoS protection
+// when needed, without breaking the protocol's stateless appearance.
+func calculateMAC2(messageBytes []byte, cookie []byte) [16]byte {
+	var result [16]byte
+	
+	// If no cookie available, MAC2 is all zeros
+	if len(cookie) == 0 {
+		return result // Already zero-initialized
+	}
+	
+	// Calculate MAC2: MAC(cookie, message_bytes)
+	mac2, err := blake2sMac(cookie, messageBytes)
+	if err != nil {
+		// If MAC calculation fails, return zeros (effectively no cookie)
+		return result
+	}
+	
+	return mac2
 }
