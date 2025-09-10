@@ -1,7 +1,31 @@
 
 # Tasks
 
-##  4 Parts of WireGuard Handshake Protocol:
+## Crypto primitives (crypto.go)
+
+- [x] **Curve25519 Operations**
+  - [x] generateKeypair() - Generate Curve25519 private/public keypairs
+  - [x] dhOperation() - Elliptic curve Diffie-Hellman key exchange
+
+- [x] **BLAKE2s Hashing & MAC**
+  - [x] blake2sHash() - BLAKE2s cryptographic hashing (32-byte output)
+  - [x] blake2sMac() - BLAKE2s keyed MAC (16-byte output)
+  - [x] blake2sHmac() - BLAKE2s HMAC (32-byte output)
+
+- [x] **Key Derivation Functions (HKDF-based)**
+  - [x] kdf1() - Single key derivation from chaining key + input
+  - [x] kdf2() - Dual key derivation (chaining_key, encryption_key)
+  - [x] kdf3() - Triple key derivation (chaining_key, temp_key, encryption_key)
+
+- [x] **ChaCha20-Poly1305 AEAD**
+  - [x] chachaPolyEncrypt() - Authenticated encryption with associated data
+  - [x] chachaPolyDecrypt() - Authenticated decryption with associated data
+
+- [x] **Timestamp Functions**
+  - [x] generateTimestamp() - TAI64N timestamp generation
+  - [x] validateTimestamp() - Replay attack prevention
+
+##  4 Parts of WireGuard Handshake Protocol (handshake.go):
 
 1. Create handshake initiation (initiator side)
     - [x]  Generate ephemeral keys, encrypt static key + timestamp
@@ -17,10 +41,17 @@
     - [x] Send second message back
 
 4. Process handshake response (initiator side)
-    - Receive & validate the second message
-    - Complete final key mixing, derive transport keys
-    - Both sides now have identical send/recv keys
+    - [x] Receive & validate the second message
+    - [x] Complete final key mixing, derive transport keys
+    - [x] Both sides now have identical send/recv keys
 
+
+> We now have a complete, working implementation of the WireGuard Noise_IK handshake protocol! 
+
+The next logical steps would be:
+- Transport data encryption/decryption (Tasks 5-6)
+- Network interface integration (TUN/UDP - Tasks 10-11)
+- Main event loop (Task 20)
 
 # NOTES and TODO
 
