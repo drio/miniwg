@@ -53,6 +53,152 @@ The next logical steps would be:
 - Network interface integration (TUN/UDP - Tasks 10-11)
 - Main event loop (Task 20)
 
+## Understanding the handshake protocol and its purpose
+
+The WireGuard handshake protocol's primary purpose is to securely establish
+shared symmetric encryption keys that both parties can use for high-speed data
+transmission. Starting with only knowledge of each other's static public keys,
+the handshake uses the **Noise_IK** protocol to perform a cryptographic dance that
+derives identical transport keys on both sides. 
+
+This process provides mutual authentication (proving both parties are who they
+claim to be): 
+1. perfect forward secrecy (compromised long-term keys don't affect past sessions), 
+2. key confirmation (both sides prove they derived the same keys),
+3. replay protection (timestamps prevent reuse of old messages), 
+4. and DoS protection (MAC system prevents resource exhaustion). 
+
+The result is a secure, authenticated channel where the initiator's sending key
+equals the responder's receiving key and vice versa, enabling fast
+ChaCha20-Poly1305 encryption of tunnel traffic.
+
+### Handshake Timeline: What Each Party Does
+
+**Before handshake**: Both parties know each other's static public keys but have 
+no shared secrets for encryption.
+
+**Step 1 - Initiator Creates & Sends First Message (HandshakeInitiation)**
+- Generates ephemeral keypair for this session
+    We need that so we have a fresh set of keys per each handshake.
+- Builds cryptographic ledger (chaining_key, hash) starting from protocol constants
+    It is a running record of all the cryptographic operations performed during the handshake.
+    It has two components:
+        1. Chaining Key: accumulate crypotgraphic material.
+        2. Hash: prevents tampering, we keep hashing as we add more operations.
+    It is a way to confirm both sides did the same operations.
+- Performs DH operations: ephemeral×peer_static, our_static×peer_static
+    DH = Diffie-Hellman Key Exchange - a way for two parties to create a shared secret using 
+    their public/private key pairs, even over an insecure channel.
+- Encrypts our static public key (proves our identity to responder)
+    The static public key is the public key that we generate with wg.
+- Encrypts timestamp (prevents replay attacks)
+    We encrypt (a the TAI64N timestamp.
+    The encryption happens with AEAD (Authenticated encryption with associated data).
+    Specifically we use: ChaCha20-Poly1305 
+    - ChaCha20 gives confidentiality (hidden from network observers)
+    - Poly1305 gives us authenticity (proves the encrypted data came with someone with the key).
+    Associated data binding: The hash parameter gets authenticated but not encrypted. Ensures the
+    timestamp is bound to a specific handshake context.
+        In summary: Associated data binding ensures that encrypted data is not just
+        authentic, but authentic in the right context.
+- Calculates MAC1/MAC2 for DoS protection
+    See (MAC for details). Wg uses the BLAKE2s MAC implementation.
+    - MAC1 (Endpoint discovery protection)
+        is computed with:  MAC(HASH(LABEL_MAC1 || peer_static_public), message_bytes)
+        It just proves the sender knows the receiver public key. 
+        Prevents from scanning ports to find wg instances.
+        WG will drop the packet if it cannot validate the MAC1.
+    - MAC2 (DoS protection)
+        Only used under heavy load (othersize it is all zeros)
+        If server detects load, switches to COOKIE MODE!
+            Wireguard does not specify how to detect load. But there are different options.
+            The canonical kernel implementation uses number of packets per second send by ip address.
+        The server responds with: send me a cookie reply first.
+        A legitimate client gets the cookie ands replies with a MAC2 that is valid
+        An attacker won't be able to get the cookie. 
+        NOTE: we don't need to implement this innitially in the first draft.
+- Sends 148-byte message to responder
+
+**Step 2 - Responder Receives & Processes First Message**
+- Validates MAC1 (proves sender knows our static public key)
+- Rebuilds identical cryptographic ledger by performing same operations
+- Decrypts and validates initiator's static public key (authentication)
+- Decrypts and validates timestamp (replay protection)
+- Verifies cryptographic state matches initiator's
+- Now both sides have synchronized chaining_key and hash
+
+**Step 3 - Responder Creates & Sends Second Message (HandshakeResponse)**
+- Generates responder's ephemeral keypair
+- Continues cryptographic ledger with responder's ephemeral contribution
+- Performs final DH operations: ephemeral×ephemeral, ephemeral×static
+- Mixes pre-shared key (zeros in our implementation)
+- Encrypts empty payload (proves successful key derivation)
+- Calculates MAC1/MAC2 for DoS protection
+- Sends 92-byte response to initiator
+
+**Step 4 - Initiator Receives & Processes Second Message**
+- Validates MAC1 (proves responder knows our static public key)
+- Performs same final DH operations as responder
+- Decrypts and validates empty payload (confirms responder derived same keys)
+- Both sides now have identical final chaining_key
+
+**Step 5 - Both Sides Derive Transport Keys**
+- Initiator: derives sending_key, receiving_key from final chaining_key
+- Responder: derives receiving_key, sending_key from same chaining_key (swapped)
+- Key relationship: initiator.sending_key == responder.receiving_key
+- **Handshake complete**: Both can now encrypt/decrypt data packets
+
+### MACs
+
+    (Wireguard uses the BLAKE2s MAC implementation.)
+    MAC= Message authentication Code. Provides authenticity and integrity.
+    MAC(key, message) → authentication_tag
+
+      Core Properties:
+
+      1. Authenticity:
+
+      - Proves the message came from someone who has the key
+      - Cannot be forged without the key
+
+      2. Integrity:
+
+      - Detects if the message was modified/corrupted
+      - Any change to the message produces a different MAC
+
+      3. Key-Dependent:
+
+      - Same message + different key = different MAC
+      - Without the key, you cannot create or verify MACs
+
+    How MAC Works:
+
+      Sender Side:
+
+      message = "Hello Bob"
+      key = "shared_secret_key"
+      mac = MAC(key, message) // → "a1b2c3d4e5f6"
+
+      // Send: message + mac
+      send("Hello Bob" + "a1b2c3d4e5f6")
+
+      Receiver Side:
+
+      received_message = "Hello Bob"
+      received_mac = "a1b2c3d4e5f6"
+
+      // Compute expected MAC
+      expected_mac = MAC(key, received_message)
+
+      if expected_mac == received_mac {
+          // ✅ Message is authentic and unmodified
+      } else {
+          // ❌ Either wrong sender or message was tampered with
+      }
+
+
+
+
 # NOTES and TODO
 
 
