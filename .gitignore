@@ -12,3 +12,4 @@ node_modules
 *.vim
 .env*
 *.mp4
+docs/CURRENT_STATUS.md
