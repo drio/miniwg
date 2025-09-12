@@ -16,6 +16,8 @@ Next, I want to build the routines to encrypt and decrypt traffic.
 I have also moved the tests we had for the handshake to a separate file and we do proper testing following
 the go conventions.
 
+I also added tests for the crypto primitives logic.
+
 
 
 # Tasks
