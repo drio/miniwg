@@ -63,6 +63,7 @@ derives identical transport keys on both sides.
 
 This process provides mutual authentication (proving both parties are who they
 claim to be): 
+
 1. perfect forward secrecy (compromised long-term keys don't affect past sessions), 
 2. key confirmation (both sides prove they derived the same keys),
 3. replay protection (timestamps prevent reuse of old messages), 
@@ -78,6 +79,7 @@ ChaCha20-Poly1305 encryption of tunnel traffic.
 no shared secrets for encryption.
 
 **Step 1 - Initiator Creates & Sends First Message (HandshakeInitiation)**
+
 - Generates ephemeral keypair for this session
     We need that so we have a fresh set of keys per each handshake.
 - Builds cryptographic ledger (chaining_key, hash) starting from protocol constants
@@ -120,6 +122,7 @@ no shared secrets for encryption.
 - Sends 148-byte message to responder
 
 **Step 2 - Responder Receives & Processes First Message**
+
 - Validates MAC1 (proves sender knows our static public key)
 - Rebuilds identical cryptographic ledger by performing same operations
 - Decrypts and validates initiator's static public key (authentication)
@@ -128,6 +131,7 @@ no shared secrets for encryption.
 - Now both sides have synchronized chaining_key and hash
 
 **Step 3 - Responder Creates & Sends Second Message (HandshakeResponse)**
+
 - Generates responder's ephemeral keypair
 - Continues cryptographic ledger with responder's ephemeral contribution
 - Performs final DH operations: ephemeral×ephemeral, ephemeral×static
@@ -137,6 +141,7 @@ no shared secrets for encryption.
 - Sends 92-byte response to initiator
 
 **Step 4 - Initiator Receives & Processes Second Message**
+
 - Validates MAC1 (proves responder knows our static public key)
 - Performs same final DH operations as responder
 - Decrypts and validates empty payload (confirms responder derived same keys)

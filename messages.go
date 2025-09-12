@@ -66,17 +66,17 @@ type TransportData struct {
 // Marshal converts HandshakeInitiation to wire format bytes
 func (msg *HandshakeInitiation) Marshal() []byte {
 	buf := make([]byte, 148)
-	
+
 	buf[0] = msg.Type
 	// Reserved bytes are already zero
 	binary.LittleEndian.PutUint32(buf[4:8], msg.Sender)
-	
+
 	copy(buf[8:40], msg.Ephemeral[:])
 	copy(buf[40:88], msg.Static[:])
 	copy(buf[88:116], msg.Timestamp[:])
 	copy(buf[116:132], msg.MAC1[:])
 	copy(buf[132:148], msg.MAC2[:])
-	
+
 	return buf
 }
 
@@ -85,34 +85,34 @@ func (msg *HandshakeInitiation) Unmarshal(data []byte) error {
 	if len(data) != 148 {
 		return errors.New("invalid handshake initiation length")
 	}
-	
+
 	msg.Type = data[0]
 	copy(msg.Reserved[:], data[1:4])
 	msg.Sender = binary.LittleEndian.Uint32(data[4:8])
-	
+
 	copy(msg.Ephemeral[:], data[8:40])
 	copy(msg.Static[:], data[40:88])
 	copy(msg.Timestamp[:], data[88:116])
 	copy(msg.MAC1[:], data[116:132])
 	copy(msg.MAC2[:], data[132:148])
-	
+
 	return nil
 }
 
-// Marshal converts HandshakeResponse to wire format bytes  
+// Marshal converts HandshakeResponse to wire format bytes
 func (msg *HandshakeResponse) Marshal() []byte {
 	buf := make([]byte, 92)
-	
+
 	buf[0] = msg.Type
 	// Reserved bytes are already zero
 	binary.LittleEndian.PutUint32(buf[4:8], msg.Sender)
 	binary.LittleEndian.PutUint32(buf[8:12], msg.Receiver)
-	
+
 	copy(buf[12:44], msg.Ephemeral[:])
 	copy(buf[44:60], msg.Empty[:])
 	copy(buf[60:76], msg.MAC1[:])
 	copy(buf[76:92], msg.MAC2[:])
-	
+
 	return buf
 }
 
@@ -121,17 +121,17 @@ func (msg *HandshakeResponse) Unmarshal(data []byte) error {
 	if len(data) != 92 {
 		return errors.New("invalid handshake response length")
 	}
-	
+
 	msg.Type = data[0]
 	copy(msg.Reserved[:], data[1:4])
 	msg.Sender = binary.LittleEndian.Uint32(data[4:8])
 	msg.Receiver = binary.LittleEndian.Uint32(data[8:12])
-	
+
 	copy(msg.Ephemeral[:], data[12:44])
 	copy(msg.Empty[:], data[44:60])
 	copy(msg.MAC1[:], data[60:76])
 	copy(msg.MAC2[:], data[76:92])
-	
+
 	return nil
 }
 
@@ -140,12 +140,12 @@ func (msg *HandshakeResponse) Unmarshal(data []byte) error {
 func MarshalTransportData(receiver uint32, counter uint64, encryptedPayload []byte) []byte {
 	headerSize := 16
 	buf := make([]byte, headerSize+len(encryptedPayload))
-	
+
 	buf[0] = MessageTypeTransportData
-	// Reserved bytes are already zero  
+	// Reserved bytes are already zero
 	binary.LittleEndian.PutUint32(buf[4:8], receiver)
 	binary.LittleEndian.PutUint64(buf[8:16], counter)
-	
+
 	copy(buf[headerSize:], encryptedPayload)
 	return buf
 }
@@ -155,15 +155,14 @@ func UnmarshalTransportData(data []byte) (receiver uint32, counter uint64, encry
 	if len(data) < 16 {
 		return 0, 0, nil, errors.New("transport data too short")
 	}
-	
+
 	if data[0] != MessageTypeTransportData {
 		return 0, 0, nil, errors.New("not a transport data message")
 	}
-	
+
 	receiver = binary.LittleEndian.Uint32(data[4:8])
 	counter = binary.LittleEndian.Uint64(data[8:16])
 	encryptedPayload = data[16:]
-	
+
 	return receiver, counter, encryptedPayload, nil
 }
-

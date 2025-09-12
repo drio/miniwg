@@ -242,7 +242,7 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 
 // testHandshakeInitiation demonstrates the step-by-step handshake initiation
 func testHandshakeInitiation() error {
-	fmt.Println("🚀 Starting WireGuard Noise_IK Handshake Initiation Test\n")
+	fmt.Println("🚀 Starting WireGuard Noise_IK Handshake Initiation Test")
 
 	// Generate keys for testing
 	ourPrivKey, ourPubKey, err := generateKeypair()
@@ -296,7 +296,7 @@ func testHandshakeInitiation() error {
 // testFullHandshakeInitiation tests the complete handshake initiation process
 // Creates a message as initiator, then processes it as responder to verify sync
 func testFullHandshakeInitiation() error {
-	fmt.Println("🔄 Testing Full Handshake Initiation (Initiator → Responder)\n")
+	fmt.Println("🔄 Testing Full Handshake Initiation (Initiator → Responder)")
 
 	// Generate keys for both parties
 	initiatorPrivKey, initiatorPubKey, err := generateKeypair()
@@ -414,7 +414,7 @@ func testFullHandshakeInitiation() error {
 	fmt.Printf("🔍 Response Message Verification:\n")
 	fmt.Printf("Response type: %d\n", responseMsg.Type)
 	fmt.Printf("Response sender: %d\n", responseMsg.Sender)
-	fmt.Printf("Response receiver: %d (should match initiator sender: %d)\n", 
+	fmt.Printf("Response receiver: %d (should match initiator sender: %d)\n",
 		responseMsg.Receiver, senderIndex)
 	fmt.Printf("Response ephemeral: %x\n", responseMsg.Ephemeral)
 	fmt.Printf("Response empty (auth tag): %x\n", responseMsg.Empty)
@@ -491,7 +491,7 @@ func testFullHandshakeInitiation() error {
 
 	// Verify key relationship: initiator send = responder receive, etc.
 	sendRecvMatch := (initSendKey == respRecvKey) && (initRecvKey == respSendKey)
-	
+
 	fmt.Printf("\n🔑 Transport Key Verification:\n")
 	fmt.Printf("Initiator sending_key:   %x\n", initSendKey)
 	fmt.Printf("Responder receiving_key: %x\n", respRecvKey)
@@ -789,9 +789,9 @@ func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub
 // Takes the synchronized responder state and completes the handshake by performing final DH operations
 // and deriving the transport keys that both sides will use for data encryption
 func createHandshakeResponse(responderState *HandshakeResponderState, responderIndex uint32) (*HandshakeResponse, *HandshakeResponderState, error) {
-	
+
 	fmt.Println("🔐 Creating WireGuard Handshake Response (Responder Side)")
-	
+
 	// Step 1: Generate ephemeral keypair for responder
 	// This ephemeral key will be used for the final DH operations to derive transport keys
 	fmt.Println("\n=== STEP 1: Generate responder ephemeral keypair ===")
@@ -836,7 +836,7 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 	responderState.chainingKey = newChainingKey2
 	fmt.Printf("chaining_key = KDF1(chaining_key, dh1): %x\n", responderState.chainingKey)
 
-	// Step 5: Perform ephemeral-static DH operation  
+	// Step 5: Perform ephemeral-static DH operation
 	// This completes the final DH mixing for perfect forward secrecy
 	fmt.Println("\n=== STEP 5: DH(responder_ephemeral_private, initiator_static_public) + KDF1 ===")
 	dhResult2, err := dhOperation(responderEphPriv, responderState.initiatorStaticPublic)
@@ -903,10 +903,10 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 	fmt.Println("\n=== STEP 9: Create HandshakeResponse message ===")
 	response := &HandshakeResponse{
 		Type:      MessageTypeHandshakeResponse,
-		Sender:    responderIndex,                              // Responder's session index
-		Receiver:  responderState.initiatorSenderIndex,        // Echo back initiator's index
-		Ephemeral: responderEphPub,                            // Responder's ephemeral public key
-		Empty:     encryptedEmptyArray,                        // Encrypted proof of key derivation
+		Sender:    responderIndex,                      // Responder's session index
+		Receiver:  responderState.initiatorSenderIndex, // Echo back initiator's index
+		Ephemeral: responderEphPub,                     // Responder's ephemeral public key
+		Empty:     encryptedEmptyArray,                 // Encrypted proof of key derivation
 		// MAC1 and MAC2 calculated below
 	}
 
@@ -935,7 +935,7 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 	// Calculate MAC2 (no cookie for minimal implementation)
 	responseBytes = response.Marshal()
 	msgBytesForMAC2 := responseBytes[:len(responseBytes)-16] // Exclude MAC2(16) bytes
-	mac2 := calculateMAC2(msgBytesForMAC2, nil)             // No cookie
+	mac2 := calculateMAC2(msgBytesForMAC2, nil)              // No cookie
 	response.MAC2 = mac2
 	fmt.Printf("MAC2: %x\n", response.MAC2)
 
@@ -950,7 +950,7 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 // This completes the handshake by performing the same DH operations as the responder
 // and derives the final transport keys that both sides will use for data encryption
 func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeInitiationState) (*HandshakeInitiationState, error) {
-	
+
 	fmt.Println("🔑 Processing WireGuard Handshake Response (Initiator Side)")
 
 	// Step 1: Unmarshal the received response message
@@ -1072,7 +1072,7 @@ func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeIni
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt empty payload: %v", err)
 	}
-	
+
 	// Empty payload should be exactly 0 bytes
 	emptyPayloadValid := (len(decryptedEmpty) == 0)
 	fmt.Printf("decrypted_empty_length: %d bytes\n", len(decryptedEmpty))
@@ -1101,16 +1101,15 @@ func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeIni
 // This is called after both sides have completed the handshake protocol
 func deriveTransportKeys(finalChainingKey [32]byte) (sendingKey, receivingKey [32]byte, err error) {
 	fmt.Println("\n🔐 Deriving Transport Keys from Final Chaining Key")
-	
+
 	// Final key derivation: KDF2 with empty input
 	sending, receiving, err := kdf2(finalChainingKey[:], nil)
 	if err != nil {
 		return [32]byte{}, [32]byte{}, fmt.Errorf("transport key derivation failed: %v", err)
 	}
-	
+
 	fmt.Printf("sending_key: %x\n", sending)
 	fmt.Printf("receiving_key: %x\n", receiving)
-	
+
 	return sending, receiving, nil
 }
-
