@@ -1,4 +1,23 @@
 
+# Context
+
+This is my implementation of the wireguard. The wireguard white paper can be found in docs/wireguard.pdf.
+I have implemented:
+
+1. All the crypto primitives necessary for the handshake
+2. The four parts of the handshake.
+
+Next, I want to build the routines to encrypt and decrypt traffic. 
+
+  - encryptPacket() - ChaCha20-Poly1305 encryption with nonce management
+  - decryptPacket() - Decryption with replay protection
+  - establishSession() / resetSession() - Session lifecycle management
+
+I have also moved the tests we had for the handshake to a separate file and we do proper testing following
+the go conventions.
+
+
+
 # Tasks
 
 ## Crypto primitives (crypto.go)
@@ -148,6 +167,7 @@ no shared secrets for encryption.
 - Both sides now have identical final chaining_key
 
 **Step 5 - Both Sides Derive Transport Keys**
+
 - Initiator: derives sending_key, receiving_key from final chaining_key
 - Responder: derives receiving_key, sending_key from same chaining_key (swapped)
 - Key relationship: initiator.sending_key == responder.receiving_key

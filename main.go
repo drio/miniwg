@@ -37,14 +37,7 @@ type MiniWG struct {
 }
 
 func main() {
-	// Test the first packet generation of the handshake
-	// if err := testHandshakeInitiation(); err != nil {
-	//     log.Fatalf("Handshake test failed: %v", err)
-	// }
-
-	// Test the full handshake initiation (both sides)
-	if err := testFullHandshakeInitiation(); err != nil {
-		log.Fatalf("Full handshake test failed: %v", err)
-	}
-
+	// TODO: Implement main event loop for WireGuard tunnel
+	log.Println("MiniWG - Minimal WireGuard Implementation")
+	log.Println("Run 'make test' to execute handshake and transport tests")
 }
