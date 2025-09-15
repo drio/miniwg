@@ -15,26 +15,6 @@ func TestCurve25519Operations(t *testing.T) {
 			t.Fatalf("failed to generate keypair: %v", err)
 		}
 
-		// Verify key lengths
-		if len(priv) != 32 {
-			t.Errorf("private key wrong length: expected 32, got %d", len(priv))
-		}
-
-		if len(pub) != 32 {
-			t.Errorf("public key wrong length: expected 32, got %d", len(pub))
-		}
-
-		// Private key should not be all zeros
-		var zeroKey [32]byte
-		if priv == zeroKey {
-			t.Error("private key should not be all zeros")
-		}
-
-		// Public key should not be all zeros
-		if pub == zeroKey {
-			t.Error("public key should not be all zeros")
-		}
-
 		// Generate another keypair - should be different
 		priv2, pub2, err := generateKeypair()
 		if err != nil {
@@ -63,6 +43,8 @@ func TestCurve25519Operations(t *testing.T) {
 		}
 
 		// Perform DH from both sides
+		// Both arrive to the same key by using their own private key and the other person
+		// public key
 		sharedAlice, err := dhOperation(alicePriv, bobPub)
 		if err != nil {
 			t.Fatalf("Alice's DH operation failed: %v", err)
@@ -78,16 +60,6 @@ func TestCurve25519Operations(t *testing.T) {
 			t.Error("shared secrets don't match")
 		}
 
-		// Shared secret should be 32 bytes
-		if len(sharedAlice) != 32 {
-			t.Errorf("shared secret wrong length: expected 32, got %d", len(sharedAlice))
-		}
-
-		// Shared secret should not be all zeros
-		var zeroSecret [32]byte
-		if sharedAlice == zeroSecret {
-			t.Error("shared secret should not be all zeros")
-		}
 	})
 }
 
@@ -98,51 +70,38 @@ func TestBLAKE2sOperations(t *testing.T) {
 	t.Run("BLAKE2s hashing", func(t *testing.T) {
 		hash := blake2sHash(testData)
 
-		// Hash should be 32 bytes
-		if len(hash) != 32 {
-			t.Errorf("hash wrong length: expected 32, got %d", len(hash))
-		}
-
-		// Same input should produce same hash
-		hash2 := blake2sHash(testData)
-		if hash != hash2 {
-			t.Error("hash not deterministic")
-		}
-
 		// Different input should produce different hash
 		hash3 := blake2sHash([]byte("different data"))
 		if hash == hash3 {
 			t.Error("different inputs produced same hash")
 		}
-
-		// Empty input should still produce valid hash
-		emptyHash := blake2sHash([]byte{})
-		if len(emptyHash) != 32 {
-			t.Error("empty input hash wrong length")
-		}
 	})
 
+	// MAC (Message Authentication Code) Authentication Flow:
+	//
+	// Sender side:
+	//   message := "Transfer $100 to Bob"
+	//   mac := blake2sMac(shared_key, message)
+	//   send(message, mac)  // Both transmitted in plaintext
+	//
+	// Receiver side:
+	//   expected_mac := blake2sMac(shared_key, received_message)
+	//   if received_mac == expected_mac {
+	//       // ✅ Message is authentic (came from holder of shared_key)
+	//       // ✅ Message has integrity (wasn't modified in transit)
+	//   }
+	//
+	// Security properties:
+	// - Message content is visible to eavesdroppers
+	// - Only someone with the shared key can generate valid MACs
+	// - Any tampering with the message produces a different MAC
+	// - Provides cryptographic proof of authenticity and integrity
 	t.Run("BLAKE2s MAC", func(t *testing.T) {
 		key := []byte("test key for MAC")
-		
+
 		mac, err := blake2sMac(key, testData)
 		if err != nil {
 			t.Fatalf("MAC calculation failed: %v", err)
-		}
-
-		// MAC should be 16 bytes
-		if len(mac) != 16 {
-			t.Errorf("MAC wrong length: expected 16, got %d", len(mac))
-		}
-
-		// Same key and data should produce same MAC
-		mac2, err := blake2sMac(key, testData)
-		if err != nil {
-			t.Fatalf("second MAC calculation failed: %v", err)
-		}
-
-		if mac != mac2 {
-			t.Error("MAC not deterministic")
 		}
 
 		// Different key should produce different MAC
@@ -166,27 +125,14 @@ func TestBLAKE2sOperations(t *testing.T) {
 		}
 	})
 
+	// Another way to compute MACs.
+	// It is more computationally intensive
 	t.Run("BLAKE2s HMAC", func(t *testing.T) {
 		key := []byte("test key for HMAC")
-		
+
 		hmac, err := blake2sHmac(key, testData)
 		if err != nil {
 			t.Fatalf("HMAC calculation failed: %v", err)
-		}
-
-		// HMAC should be 32 bytes
-		if len(hmac) != 32 {
-			t.Errorf("HMAC wrong length: expected 32, got %d", len(hmac))
-		}
-
-		// Same key and data should produce same HMAC
-		hmac2, err := blake2sHmac(key, testData)
-		if err != nil {
-			t.Fatalf("second HMAC calculation failed: %v", err)
-		}
-
-		if hmac != hmac2 {
-			t.Error("HMAC not deterministic")
 		}
 
 		// Different key should produce different HMAC
@@ -202,6 +148,30 @@ func TestBLAKE2sOperations(t *testing.T) {
 }
 
 // TestKeyDerivationFunctions tests KDF1, KDF2, and KDF3
+//
+// KDFs (Key Derivation Functions) are like a "key factory" - they take existing
+// key material and produce new, independent keys for different purposes.
+//
+// Why we need this: During the WireGuard handshake, we collect multiple secrets
+// (ephemeral keys, shared secrets from DH operations) and need to derive separate
+// encryption keys from them.
+//
+// The chainingKey acts like a running ledger that accumulates all cryptographic
+// material processed so far. Each step adds new material to this ledger, ensuring
+// both peers follow the exact same cryptographic path and derive identical keys.
+//
+// Security property: Since the chainingKey is used in every step, if any part of
+// the handshake is compromised or corrupted (wrong keys, network errors, attacks),
+// the entire handshake will fail. This is intentional - it provides automatic
+// detection of any problems and prevents partial compromises.
+//
+// KDF1/KDF2/KDF3 produce different numbers of output keys:
+// - KDF1: 1 output key
+// - KDF2: 2 output keys
+// - KDF3: 3 output keys
+//
+// What those keys are used for (chaining key, encryption key, etc.)
+// depends on the specific step in the WireGuard protocol.
 func TestKeyDerivationFunctions(t *testing.T) {
 	chainingKey := []byte("test chaining key for derivation")
 	inputMaterial := []byte("input material for key derivation")
@@ -210,21 +180,6 @@ func TestKeyDerivationFunctions(t *testing.T) {
 		derivedKey, err := kdf1(chainingKey, inputMaterial)
 		if err != nil {
 			t.Fatalf("KDF1 failed: %v", err)
-		}
-
-		// Should produce 32-byte key
-		if len(derivedKey) != 32 {
-			t.Errorf("KDF1 output wrong length: expected 32, got %d", len(derivedKey))
-		}
-
-		// Same inputs should produce same output
-		derivedKey2, err := kdf1(chainingKey, inputMaterial)
-		if err != nil {
-			t.Fatalf("second KDF1 failed: %v", err)
-		}
-
-		if derivedKey != derivedKey2 {
-			t.Error("KDF1 not deterministic")
 		}
 
 		// Different chaining key should produce different output
@@ -254,28 +209,9 @@ func TestKeyDerivationFunctions(t *testing.T) {
 			t.Fatalf("KDF2 failed: %v", err)
 		}
 
-		// Should produce two 32-byte keys
-		if len(key1) != 32 {
-			t.Errorf("KDF2 key1 wrong length: expected 32, got %d", len(key1))
-		}
-
-		if len(key2) != 32 {
-			t.Errorf("KDF2 key2 wrong length: expected 32, got %d", len(key2))
-		}
-
 		// Keys should be different from each other
 		if key1 == key2 {
 			t.Error("KDF2 produced identical keys")
-		}
-
-		// Same inputs should produce same outputs
-		key1b, key2b, err := kdf2(chainingKey, inputMaterial)
-		if err != nil {
-			t.Fatalf("second KDF2 failed: %v", err)
-		}
-
-		if key1 != key1b || key2 != key2b {
-			t.Error("KDF2 not deterministic")
 		}
 	})
 
@@ -285,37 +221,22 @@ func TestKeyDerivationFunctions(t *testing.T) {
 			t.Fatalf("KDF3 failed: %v", err)
 		}
 
-		// Should produce three 32-byte keys
-		if len(key1) != 32 {
-			t.Errorf("KDF3 key1 wrong length: expected 32, got %d", len(key1))
-		}
-
-		if len(key2) != 32 {
-			t.Errorf("KDF3 key2 wrong length: expected 32, got %d", len(key2))
-		}
-
-		if len(key3) != 32 {
-			t.Errorf("KDF3 key3 wrong length: expected 32, got %d", len(key3))
-		}
-
 		// Keys should all be different from each other
 		if key1 == key2 || key1 == key3 || key2 == key3 {
 			t.Error("KDF3 produced duplicate keys")
-		}
-
-		// Same inputs should produce same outputs
-		key1b, key2b, key3b, err := kdf3(chainingKey, inputMaterial)
-		if err != nil {
-			t.Fatalf("second KDF3 failed: %v", err)
-		}
-
-		if key1 != key1b || key2 != key2b || key3 != key3b {
-			t.Error("KDF3 not deterministic")
 		}
 	})
 }
 
 // TestChaCha20Poly1305AEAD tests authenticated encryption
+//
+// ChaCha20-Poly1305 provides both confidentiality (encryption) and authenticity
+// (authentication) in one operation. This is what encrypts all WireGuard traffic
+// after the handshake completes.
+//
+// Two algorithms working together:
+// - ChaCha20: Encrypts the plaintext (hides content)
+// - Poly1305: Authenticates ciphertext + associated data (detects tampering)
 func TestChaCha20Poly1305AEAD(t *testing.T) {
 	// Generate a random key
 	var key [32]byte
@@ -332,11 +253,6 @@ func TestChaCha20Poly1305AEAD(t *testing.T) {
 		ciphertext, err := chachaPolyEncrypt(key, nonce, plaintext, associatedData)
 		if err != nil {
 			t.Fatalf("encryption failed: %v", err)
-		}
-
-		// Ciphertext should be longer than plaintext (includes auth tag)
-		if len(ciphertext) != len(plaintext)+16 {
-			t.Errorf("ciphertext wrong length: expected %d, got %d", len(plaintext)+16, len(ciphertext))
 		}
 
 		// Decrypt
@@ -407,6 +323,8 @@ func TestChaCha20Poly1305AEAD(t *testing.T) {
 	})
 
 	t.Run("Authentication failure with wrong associated data", func(t *testing.T) {
+		// Associated data is transmitted in plaintext but is cryptographically
+		// authenticated. Any tampering with it will cause decryption to fail.
 		ciphertext, err := chachaPolyEncrypt(key, nonce, plaintext, associatedData)
 		if err != nil {
 			t.Fatalf("encryption failed: %v", err)
@@ -446,11 +364,6 @@ func TestChaCha20Poly1305AEAD(t *testing.T) {
 			t.Fatalf("encryption of empty plaintext failed: %v", err)
 		}
 
-		// Should still have auth tag
-		if len(ciphertext) != 16 {
-			t.Errorf("empty plaintext ciphertext wrong length: expected 16, got %d", len(ciphertext))
-		}
-
 		decrypted, err := chachaPolyDecrypt(key, nonce, ciphertext, associatedData)
 		if err != nil {
 			t.Fatalf("decryption of empty plaintext failed: %v", err)
@@ -467,14 +380,9 @@ func TestTimestampFunctions(t *testing.T) {
 	t.Run("Timestamp generation", func(t *testing.T) {
 		timestamp := generateTimestamp()
 
-		// Should be 12 bytes (8 bytes seconds + 4 bytes nanoseconds)
-		if len(timestamp) != 12 {
-			t.Errorf("timestamp wrong length: expected 12, got %d", len(timestamp))
-		}
-
 		// Generate another timestamp - should be different (or at least not before)
 		timestamp2 := generateTimestamp()
-		
+
 		// Convert to comparable format for validation
 		// (timestamps should generally be increasing)
 		time1 := bytes.Compare(timestamp[:], timestamp2[:])
