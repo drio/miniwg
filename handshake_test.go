@@ -24,7 +24,6 @@ func generateRandomIndex(t *testing.T) uint32 {
 
 // TestHandshakeInitiation tests the creation of handshake initiation messages
 func TestHandshakeInitiation(t *testing.T) {
-	// Generate keys for testing
 	ourPrivKey, ourPubKey, err := generateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate our keypair: %v", err)
@@ -35,16 +34,13 @@ func TestHandshakeInitiation(t *testing.T) {
 		t.Fatalf("failed to generate peer keypair: %v", err)
 	}
 
-	// Generate random sender index
 	senderIndex := generateRandomIndex(t)
 
-	// Create the handshake initiation
 	msg, state, err := createHandshakeInitiation(ourPrivKey, ourPubKey, peerPubKey, senderIndex)
 	if err != nil {
 		t.Fatalf("handshake initiation failed: %v", err)
 	}
 
-	// Verify message structure
 	if msg.Type != MessageTypeHandshakeInitiation {
 		t.Errorf("wrong message type: expected %d, got %d", MessageTypeHandshakeInitiation, msg.Type)
 	}
@@ -53,13 +49,11 @@ func TestHandshakeInitiation(t *testing.T) {
 		t.Errorf("wrong sender index: expected %d, got %d", senderIndex, msg.Sender)
 	}
 
-	// Marshal the message to bytes
 	msgBytes := msg.Marshal()
 	if len(msgBytes) != 148 {
 		t.Errorf("wrong message size: expected 148, got %d", len(msgBytes))
 	}
 
-	// Verify state is populated
 	if state.chainingKey == [32]byte{} {
 		t.Error("chaining key should not be empty")
 	}
@@ -71,7 +65,6 @@ func TestHandshakeInitiation(t *testing.T) {
 
 // TestFullHandshake tests the complete 4-part handshake process
 func TestFullHandshake(t *testing.T) {
-	// Generate keys for both parties
 	initiatorPrivKey, initiatorPubKey, err := generateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate initiator keypair: %v", err)
@@ -82,37 +75,28 @@ func TestFullHandshake(t *testing.T) {
 		t.Fatalf("failed to generate responder keypair: %v", err)
 	}
 
-	// Generate sender indexes
 	senderIndex := generateRandomIndex(t)
 	responderIndex := generateRandomIndex(t)
 
 	t.Run("Part 1: Create handshake initiation", func(t *testing.T) {
-		// Create handshake initiation as initiator
 		msg, initiatorState, err := createHandshakeInitiation(initiatorPrivKey, initiatorPubKey, responderPubKey, senderIndex)
 		if err != nil {
 			t.Fatalf("handshake initiation creation failed: %v", err)
 		}
 
-		// Store for next test
-		t.Cleanup(func() {
-			// Store initiatorState for use in other tests
-		})
 
-		// Marshal the message
 		msgBytes := msg.Marshal()
 		if len(msgBytes) != 148 {
 			t.Errorf("wrong initiation message size: expected 148, got %d", len(msgBytes))
 		}
 
 		t.Run("Part 2: Process handshake initiation", func(t *testing.T) {
-			// Process handshake initiation as responder
 			var zeroTimestamp [12]byte // For first handshake, no previous timestamp
 			responderState, err := processHandshakeInitiation(msgBytes, responderPrivKey, responderPubKey, zeroTimestamp)
 			if err != nil {
 				t.Fatalf("handshake initiation processing failed: %v", err)
 			}
 
-			// Verify states are synchronized
 			if initiatorState.chainingKey != responderState.chainingKey {
 				t.Error("chaining keys don't match after initiation processing")
 			}
@@ -121,19 +105,16 @@ func TestFullHandshake(t *testing.T) {
 				t.Error("hashes don't match after initiation processing")
 			}
 
-			// Verify responder correctly identified initiator
 			if responderState.initiatorStaticPublic != initiatorPubKey {
 				t.Error("responder failed to identify initiator correctly")
 			}
 
 			t.Run("Part 3: Create handshake response", func(t *testing.T) {
-				// Create handshake response as responder
 				responseMsg, finalResponderState, err := createHandshakeResponse(responderState, responderIndex)
 				if err != nil {
 					t.Fatalf("handshake response creation failed: %v", err)
 				}
 
-				// Verify response message structure
 				if responseMsg.Type != MessageTypeHandshakeResponse {
 					t.Errorf("wrong response type: expected %d, got %d", MessageTypeHandshakeResponse, responseMsg.Type)
 				}
@@ -146,20 +127,17 @@ func TestFullHandshake(t *testing.T) {
 					t.Errorf("wrong response receiver: expected %d, got %d", senderIndex, responseMsg.Receiver)
 				}
 
-				// Marshal the response message
 				responseMsgBytes := responseMsg.Marshal()
 				if len(responseMsgBytes) != 92 {
 					t.Errorf("wrong response message size: expected 92, got %d", len(responseMsgBytes))
 				}
 
 				t.Run("Part 4: Process handshake response", func(t *testing.T) {
-					// Process handshake response as initiator
 					finalInitiatorState, err := processHandshakeResponse(responseMsgBytes, initiatorState)
 					if err != nil {
 						t.Fatalf("handshake response processing failed: %v", err)
 					}
 
-					// Verify both sides have the same final chaining key
 					if finalInitiatorState.chainingKey != finalResponderState.chainingKey {
 						t.Error("final chaining keys don't match")
 					}
@@ -207,13 +185,11 @@ func TestFullHandshake(t *testing.T) {
 
 // TestHandshakeMACs tests MAC1 and MAC2 calculation
 func TestHandshakeMACs(t *testing.T) {
-	// Generate test keys
 	_, ourPubKey, err := generateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate keypair: %v", err)
 	}
 
-	// Test message bytes
 	testMessage := []byte("test message for MAC calculation")
 
 	t.Run("MAC1 calculation", func(t *testing.T) {
@@ -222,12 +198,10 @@ func TestHandshakeMACs(t *testing.T) {
 			t.Fatalf("MAC1 calculation failed: %v", err)
 		}
 
-		// MAC1 should be 16 bytes
 		if len(mac1) != 16 {
 			t.Errorf("MAC1 wrong length: expected 16, got %d", len(mac1))
 		}
 
-		// Same inputs should produce same MAC1
 		mac1Again, err := calculateMAC1(testMessage, ourPubKey)
 		if err != nil {
 			t.Fatalf("MAC1 calculation failed on repeat: %v", err)
@@ -239,14 +213,12 @@ func TestHandshakeMACs(t *testing.T) {
 	})
 
 	t.Run("MAC2 calculation", func(t *testing.T) {
-		// Test with no cookie (should be zeros)
-		mac2 := calculateMAC2(testMessage, nil)
+		mac2 := calculateMAC2(testMessage, nil) // Should be zeros with no cookie
 		var zeroMAC [16]byte
 		if mac2 != zeroMAC {
 			t.Error("MAC2 should be zeros when no cookie provided")
 		}
 
-		// Test with cookie
 		cookie := []byte("test cookie data")
 		mac2WithCookie := calculateMAC2(testMessage, cookie)
 		if mac2WithCookie == zeroMAC {
@@ -257,7 +229,6 @@ func TestHandshakeMACs(t *testing.T) {
 
 // TestHandshakeValidation tests various validation scenarios
 func TestHandshakeValidation(t *testing.T) {
-	// Generate keys
 	ourPrivKey, ourPubKey, err := generateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate our keypair: %v", err)
@@ -268,7 +239,6 @@ func TestHandshakeValidation(t *testing.T) {
 		t.Fatalf("failed to generate peer keypair: %v", err)
 	}
 
-	// Create valid handshake initiation
 	msg, _, err := createHandshakeInitiation(ourPrivKey, ourPubKey, peerPubKey, 12345)
 	if err != nil {
 		t.Fatalf("failed to create handshake initiation: %v", err)
@@ -277,7 +247,7 @@ func TestHandshakeValidation(t *testing.T) {
 	msgBytes := msg.Marshal()
 
 	t.Run("Invalid message length", func(t *testing.T) {
-		shortMsg := msgBytes[:100] // Too short
+		shortMsg := msgBytes[:100]
 		var zeroTimestamp [12]byte
 		_, err := processHandshakeInitiation(shortMsg, ourPrivKey, ourPubKey, zeroTimestamp)
 		if err == nil {
@@ -288,7 +258,7 @@ func TestHandshakeValidation(t *testing.T) {
 	t.Run("Invalid message type", func(t *testing.T) {
 		invalidMsg := make([]byte, len(msgBytes))
 		copy(invalidMsg, msgBytes)
-		invalidMsg[0] = 99 // Wrong message type
+		invalidMsg[0] = 99
 
 		var msg HandshakeInitiation
 		err := msg.Unmarshal(invalidMsg)
@@ -307,8 +277,7 @@ func TestHandshakeValidation(t *testing.T) {
 		invalidMsg := make([]byte, len(msgBytes))
 		copy(invalidMsg, msgBytes)
 
-		// Corrupt MAC1
-		for i := 116; i < 132; i++ {
+		for i := 116; i < 132; i++ { // Corrupt MAC1
 			invalidMsg[i] ^= 0xFF
 		}
 

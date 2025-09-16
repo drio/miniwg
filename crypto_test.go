@@ -9,13 +9,11 @@ import (
 // TestCurve25519Operations tests key generation and DH operations
 func TestCurve25519Operations(t *testing.T) {
 	t.Run("Key generation", func(t *testing.T) {
-		// Generate keypair
 		priv, pub, err := generateKeypair()
 		if err != nil {
 			t.Fatalf("failed to generate keypair: %v", err)
 		}
 
-		// Generate another keypair - should be different
 		priv2, pub2, err := generateKeypair()
 		if err != nil {
 			t.Fatalf("failed to generate second keypair: %v", err)
@@ -31,7 +29,6 @@ func TestCurve25519Operations(t *testing.T) {
 	})
 
 	t.Run("Diffie-Hellman key exchange", func(t *testing.T) {
-		// Generate two keypairs
 		alicePriv, alicePub, err := generateKeypair()
 		if err != nil {
 			t.Fatalf("failed to generate Alice's keypair: %v", err)
@@ -42,9 +39,7 @@ func TestCurve25519Operations(t *testing.T) {
 			t.Fatalf("failed to generate Bob's keypair: %v", err)
 		}
 
-		// Perform DH from both sides
-		// Both arrive to the same key by using their own private key and the other person
-		// public key
+		// Both arrive to the same key by using their own private key and the other person's public key
 		sharedAlice, err := dhOperation(alicePriv, bobPub)
 		if err != nil {
 			t.Fatalf("Alice's DH operation failed: %v", err)
@@ -55,7 +50,6 @@ func TestCurve25519Operations(t *testing.T) {
 			t.Fatalf("Bob's DH operation failed: %v", err)
 		}
 
-		// Shared secrets should be identical
 		if sharedAlice != sharedBob {
 			t.Error("shared secrets don't match")
 		}
@@ -70,7 +64,6 @@ func TestBLAKE2sOperations(t *testing.T) {
 	t.Run("BLAKE2s hashing", func(t *testing.T) {
 		hash := blake2sHash(testData)
 
-		// Different input should produce different hash
 		hash3 := blake2sHash([]byte("different data"))
 		if hash == hash3 {
 			t.Error("different inputs produced same hash")
@@ -104,7 +97,6 @@ func TestBLAKE2sOperations(t *testing.T) {
 			t.Fatalf("MAC calculation failed: %v", err)
 		}
 
-		// Different key should produce different MAC
 		mac3, err := blake2sMac([]byte("different key"), testData)
 		if err != nil {
 			t.Fatalf("third MAC calculation failed: %v", err)
@@ -114,7 +106,6 @@ func TestBLAKE2sOperations(t *testing.T) {
 			t.Error("different keys produced same MAC")
 		}
 
-		// Different data should produce different MAC
 		mac4, err := blake2sMac(key, []byte("different data"))
 		if err != nil {
 			t.Fatalf("fourth MAC calculation failed: %v", err)
@@ -135,7 +126,6 @@ func TestBLAKE2sOperations(t *testing.T) {
 			t.Fatalf("HMAC calculation failed: %v", err)
 		}
 
-		// Different key should produce different HMAC
 		hmac3, err := blake2sHmac([]byte("different key"), testData)
 		if err != nil {
 			t.Fatalf("third HMAC calculation failed: %v", err)
@@ -182,7 +172,6 @@ func TestKeyDerivationFunctions(t *testing.T) {
 			t.Fatalf("KDF1 failed: %v", err)
 		}
 
-		// Different chaining key should produce different output
 		derivedKey3, err := kdf1([]byte("different chaining key"), inputMaterial)
 		if err != nil {
 			t.Fatalf("third KDF1 failed: %v", err)
@@ -192,7 +181,6 @@ func TestKeyDerivationFunctions(t *testing.T) {
 			t.Error("different chaining keys produced same KDF1 output")
 		}
 
-		// Different input material should produce different output
 		derivedKey4, err := kdf1(chainingKey, []byte("different input"))
 		if err != nil {
 			t.Fatalf("fourth KDF1 failed: %v", err)
@@ -209,7 +197,6 @@ func TestKeyDerivationFunctions(t *testing.T) {
 			t.Fatalf("KDF2 failed: %v", err)
 		}
 
-		// Keys should be different from each other
 		if key1 == key2 {
 			t.Error("KDF2 produced identical keys")
 		}
@@ -221,7 +208,6 @@ func TestKeyDerivationFunctions(t *testing.T) {
 			t.Fatalf("KDF3 failed: %v", err)
 		}
 
-		// Keys should all be different from each other
 		if key1 == key2 || key1 == key3 || key2 == key3 {
 			t.Error("KDF3 produced duplicate keys")
 		}
@@ -238,7 +224,6 @@ func TestKeyDerivationFunctions(t *testing.T) {
 // - ChaCha20: Encrypts the plaintext (hides content)
 // - Poly1305: Authenticates ciphertext + associated data (detects tampering)
 func TestChaCha20Poly1305AEAD(t *testing.T) {
-	// Generate a random key
 	var key [32]byte
 	if _, err := rand.Read(key[:]); err != nil {
 		t.Fatalf("failed to generate random key: %v", err)
@@ -249,19 +234,16 @@ func TestChaCha20Poly1305AEAD(t *testing.T) {
 	nonce := uint64(12345)
 
 	t.Run("Encryption and decryption", func(t *testing.T) {
-		// Encrypt
 		ciphertext, err := chachaPolyEncrypt(key, nonce, plaintext, associatedData)
 		if err != nil {
 			t.Fatalf("encryption failed: %v", err)
 		}
 
-		// Decrypt
 		decrypted, err := chachaPolyDecrypt(key, nonce, ciphertext, associatedData)
 		if err != nil {
 			t.Fatalf("decryption failed: %v", err)
 		}
 
-		// Decrypted should match original plaintext
 		if !bytes.Equal(decrypted, plaintext) {
 			t.Error("decrypted text doesn't match original plaintext")
 		}
@@ -315,7 +297,6 @@ func TestChaCha20Poly1305AEAD(t *testing.T) {
 			t.Fatalf("encryption failed: %v", err)
 		}
 
-		// Try to decrypt with wrong key - should fail
 		_, err = chachaPolyDecrypt(wrongKey, nonce, ciphertext, associatedData)
 		if err == nil {
 			t.Error("decryption should fail with wrong key")
@@ -330,7 +311,6 @@ func TestChaCha20Poly1305AEAD(t *testing.T) {
 			t.Fatalf("encryption failed: %v", err)
 		}
 
-		// Try to decrypt with wrong associated data - should fail
 		wrongAssociatedData := []byte("wrong associated data")
 		_, err = chachaPolyDecrypt(key, nonce, ciphertext, wrongAssociatedData)
 		if err == nil {
@@ -344,12 +324,10 @@ func TestChaCha20Poly1305AEAD(t *testing.T) {
 			t.Fatalf("encryption failed: %v", err)
 		}
 
-		// Corrupt the ciphertext
 		corruptedCiphertext := make([]byte, len(ciphertext))
 		copy(corruptedCiphertext, ciphertext)
-		corruptedCiphertext[0] ^= 0x01 // Flip a bit
+		corruptedCiphertext[0] ^= 0x01
 
-		// Try to decrypt corrupted ciphertext - should fail
 		_, err = chachaPolyDecrypt(key, nonce, corruptedCiphertext, associatedData)
 		if err == nil {
 			t.Error("decryption should fail with corrupted ciphertext")
@@ -380,41 +358,31 @@ func TestTimestampFunctions(t *testing.T) {
 	t.Run("Timestamp generation", func(t *testing.T) {
 		timestamp := generateTimestamp()
 
-		// Generate another timestamp - should be different (or at least not before)
 		timestamp2 := generateTimestamp()
 
-		// Convert to comparable format for validation
-		// (timestamps should generally be increasing)
 		time1 := bytes.Compare(timestamp[:], timestamp2[:])
 		if time1 > 0 {
-			// timestamp2 should not be before timestamp1
-			// (allowing equal in case they're generated in same nanosecond)
 			t.Error("second timestamp appears to be before first timestamp")
 		}
 	})
 
 	t.Run("Timestamp validation", func(t *testing.T) {
-		// Create test timestamps
 		oldTimestamp := [12]byte{0x00, 0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 		newTimestamp := [12]byte{0x00, 0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00}
 		futureTimestamp := [12]byte{0x00, 0x00, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
-		// New timestamp should be valid when compared to older one
 		if !validateTimestamp(newTimestamp, oldTimestamp) {
 			t.Error("newer timestamp should be valid")
 		}
 
-		// Old timestamp should not be valid when compared to newer one
 		if validateTimestamp(oldTimestamp, newTimestamp) {
 			t.Error("older timestamp should not be valid")
 		}
 
-		// Same timestamp should not be valid (replay protection)
 		if validateTimestamp(newTimestamp, newTimestamp) {
 			t.Error("identical timestamps should not be valid")
 		}
 
-		// Future timestamp should be valid
 		if !validateTimestamp(futureTimestamp, newTimestamp) {
 			t.Error("future timestamp should be valid")
 		}
