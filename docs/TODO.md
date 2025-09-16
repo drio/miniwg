@@ -7,16 +7,20 @@ I have implemented:
 1. All the crypto primitives necessary for the handshake
 2. The four parts of the handshake.
 
+I added tests for the crypto primitives logic.
+
+I have reviewed all the tests in crypto, handshake and transport.
+I hope it is a good way for others to undertand how the code works.
+
+I moved the tests we had for the handshake to a separate file and we do proper
+testing following the go conventions.
+
 Next, I want to build the routines to encrypt and decrypt traffic. 
 
   - encryptPacket() - ChaCha20-Poly1305 encryption with nonce management
   - decryptPacket() - Decryption with replay protection
   - establishSession() / resetSession() - Session lifecycle management
 
-I have also moved the tests we had for the handshake to a separate file and we do proper testing following
-the go conventions.
-
-I also added tests for the crypto primitives logic.
 
 
 
