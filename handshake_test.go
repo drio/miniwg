@@ -5,6 +5,23 @@ import (
 	"testing"
 )
 
+// generateRandomIndex creates a random 32-bit sender/receiver index for WireGuard messages
+func generateRandomIndex(t *testing.T) uint32 {
+	var indexBytes [4]byte
+	if _, err := rand.Read(indexBytes[:]); err != nil {
+		t.Fatalf("failed to generate random index: %v", err)
+	}
+	// Convert to little-endian uint32
+	//   If the random bytes are [0x12, 0x34, 0x56, 0x78]:
+	// index = 0x12 | (0x34<<8) | (0x56<<16) | (0x78<<24)
+	//       = 0x12 | 0x3400 | 0x560000 | 0x78000000
+	//       = 0x78563412
+	return uint32(indexBytes[0]) |
+		uint32(indexBytes[1])<<8 |
+		uint32(indexBytes[2])<<16 |
+		uint32(indexBytes[3])<<24
+}
+
 // TestHandshakeInitiation tests the creation of handshake initiation messages
 func TestHandshakeInitiation(t *testing.T) {
 	// Generate keys for testing
@@ -19,14 +36,7 @@ func TestHandshakeInitiation(t *testing.T) {
 	}
 
 	// Generate random sender index
-	var senderIndexBytes [4]byte
-	if _, err := rand.Read(senderIndexBytes[:]); err != nil {
-		t.Fatalf("failed to generate sender index: %v", err)
-	}
-	senderIndex := uint32(senderIndexBytes[0]) |
-		uint32(senderIndexBytes[1])<<8 |
-		uint32(senderIndexBytes[2])<<16 |
-		uint32(senderIndexBytes[3])<<24
+	senderIndex := generateRandomIndex(t)
 
 	// Create the handshake initiation
 	msg, state, err := createHandshakeInitiation(ourPrivKey, ourPubKey, peerPubKey, senderIndex)
@@ -73,23 +83,8 @@ func TestFullHandshake(t *testing.T) {
 	}
 
 	// Generate sender indexes
-	var senderIndexBytes [4]byte
-	if _, err := rand.Read(senderIndexBytes[:]); err != nil {
-		t.Fatalf("failed to generate sender index: %v", err)
-	}
-	senderIndex := uint32(senderIndexBytes[0]) |
-		uint32(senderIndexBytes[1])<<8 |
-		uint32(senderIndexBytes[2])<<16 |
-		uint32(senderIndexBytes[3])<<24
-
-	var responderIndexBytes [4]byte
-	if _, err := rand.Read(responderIndexBytes[:]); err != nil {
-		t.Fatalf("failed to generate responder index: %v", err)
-	}
-	responderIndex := uint32(responderIndexBytes[0]) |
-		uint32(responderIndexBytes[1])<<8 |
-		uint32(responderIndexBytes[2])<<16 |
-		uint32(responderIndexBytes[3])<<24
+	senderIndex := generateRandomIndex(t)
+	responderIndex := generateRandomIndex(t)
 
 	t.Run("Part 1: Create handshake initiation", func(t *testing.T) {
 		// Create handshake initiation as initiator
@@ -311,7 +306,7 @@ func TestHandshakeValidation(t *testing.T) {
 	t.Run("MAC1 validation", func(t *testing.T) {
 		invalidMsg := make([]byte, len(msgBytes))
 		copy(invalidMsg, msgBytes)
-		
+
 		// Corrupt MAC1
 		for i := 116; i < 132; i++ {
 			invalidMsg[i] ^= 0xFF
@@ -324,3 +319,4 @@ func TestHandshakeValidation(t *testing.T) {
 		}
 	})
 }
+
