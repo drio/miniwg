@@ -641,7 +641,6 @@ func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeIni
 	temp4 := append(initiatorState.hash[:], response.Empty[:]...)
 	initiatorState.hash = blake2sHash(temp4)
 
-	
 	return initiatorState, nil
 }
 
@@ -654,7 +653,6 @@ func deriveTransportKeys(finalChainingKey [32]byte) (sendingKey, receivingKey [3
 	if err != nil {
 		return [32]byte{}, [32]byte{}, fmt.Errorf("transport key derivation failed: %v", err)
 	}
-
 
 	return sending, receiving, nil
 }

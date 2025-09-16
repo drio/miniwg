@@ -84,7 +84,6 @@ func TestFullHandshake(t *testing.T) {
 			t.Fatalf("handshake initiation creation failed: %v", err)
 		}
 
-
 		msgBytes := msg.Marshal()
 		if len(msgBytes) != 148 {
 			t.Errorf("wrong initiation message size: expected 148, got %d", len(msgBytes))
@@ -288,4 +287,3 @@ func TestHandshakeValidation(t *testing.T) {
 		}
 	})
 }
-

@@ -13,3 +13,4 @@ node_modules
 .env*
 *.mp4
 docs/CURRENT_STATUS.md
+miniwg
