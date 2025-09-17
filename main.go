@@ -128,6 +128,23 @@ func (wg *MiniWG) loadConfig(configFile string) error {
 	return nil
 }
 
+// setupUDP creates and binds the UDP socket for WireGuard communication
+func (wg *MiniWG) setupUDP() error {
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", wg.listenPort))
+	if err != nil {
+		return fmt.Errorf("failed to resolve UDP address: %v", err)
+	}
+
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to bind UDP socket: %v", err)
+	}
+
+	wg.udp = conn
+	log.Printf("UDP socket listening on port %d", wg.listenPort)
+	return nil
+}
+
 func main() {
 	log.Println("MiniWG - Minimal WireGuard Implementation")
 
@@ -146,6 +163,11 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Setup UDP socket
+	if err := wg.setupUDP(); err != nil {
+		log.Fatalf("Failed to setup UDP socket: %v", err)
+	}
+
 	fmt.Println("Configuration loaded successfully")
-	fmt.Println("TODO: Setup TUN interface and UDP socket")
+	fmt.Println("TODO: Setup TUN interface")
 }
