@@ -145,6 +145,26 @@ func (wg *MiniWG) setupUDP() error {
 	return nil
 }
 
+// setupTUN creates and configures the TUN interface
+func (wg *MiniWG) setupTUN() error {
+	config := water.Config{
+		DeviceType: water.TUN,
+		PlatformSpecificParams: water.PlatformSpecificParams{
+			Name: wg.tunName,
+		},
+	}
+
+	iface, err := water.New(config)
+	if err != nil {
+		return fmt.Errorf("failed to create TUN interface: %v", err)
+	}
+
+	wg.tun = iface
+	log.Printf("TUN interface %s created", wg.tunName)
+	log.Printf("Configure with: ip addr add %s dev %s && ip link set %s up", wg.tunAddress, wg.tunName, wg.tunName)
+	return nil
+}
+
 func main() {
 	log.Println("MiniWG - Minimal WireGuard Implementation")
 
@@ -168,6 +188,11 @@ func main() {
 		log.Fatalf("Failed to setup UDP socket: %v", err)
 	}
 
-	fmt.Println("Configuration loaded successfully")
-	fmt.Println("TODO: Setup TUN interface")
+	// Setup TUN interface
+	if err := wg.setupTUN(); err != nil {
+		log.Fatalf("Failed to setup TUN interface: %v", err)
+	}
+
+	fmt.Println("Network interfaces initialized successfully")
+	fmt.Println("TODO: Implement main event loop")
 }
