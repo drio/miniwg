@@ -1,19 +1,13 @@
 package main
 
 import (
-	"bufio"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
 	"net"
-	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/songgao/water"
-	"golang.org/x/crypto/curve25519"
 )
 
 // MiniWG represents a minimal WireGuard implementation
@@ -49,126 +43,9 @@ type MiniWG struct {
 	tunAddress string
 }
 
-// loadConfig reads configuration from a file
-func (wg *MiniWG) loadConfig(configFile string) error {
-	file, err := os.Open(configFile)
-	if err != nil {
-		return fmt.Errorf("failed to open config file: %v", err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue // Skip empty lines and comments
-		}
-
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		switch key {
-		case "PrivateKey":
-			privateKeyBytes, err := hex.DecodeString(value)
-			if err != nil {
-				return fmt.Errorf("failed to decode private key: %v", err)
-			}
-			copy(wg.privateKey[:], privateKeyBytes)
-
-		case "PeerPublicKey":
-			peerKeyBytes, err := hex.DecodeString(value)
-			if err != nil {
-				return fmt.Errorf("failed to decode peer key: %v", err)
-			}
-			copy(wg.peerKey[:], peerKeyBytes)
-
-		case "ListenPort":
-			port, err := strconv.Atoi(value)
-			if err != nil {
-				return fmt.Errorf("failed to parse listen port: %v", err)
-			}
-			wg.listenPort = port
-
-		case "PeerEndpoint":
-			peerAddr, err := net.ResolveUDPAddr("udp", value)
-			if err != nil {
-				return fmt.Errorf("failed to resolve peer address: %v", err)
-			}
-			wg.peerAddr = peerAddr
-
-		case "TunName":
-			wg.tunName = value
-
-		case "TunAddress":
-			wg.tunAddress = value
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading config file: %v", err)
-	}
-
-	// Derive public key from private key
-	curve25519.ScalarBaseMult(&wg.publicKey, &wg.privateKey)
-
-	// Generate random local index for this session
-	wg.localIndex = 0x12345678
-
-	log.Printf("Local public key: %x", wg.publicKey)
-	log.Printf("Peer public key: %x", wg.peerKey)
-	log.Printf("Listen port: %d", wg.listenPort)
-	log.Printf("Peer address: %s", wg.peerAddr)
-	log.Printf("TUN: %s (%s)", wg.tunName, wg.tunAddress)
-
-	return nil
-}
-
-// setupUDP creates and binds the UDP socket for WireGuard communication
-func (wg *MiniWG) setupUDP() error {
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", wg.listenPort))
-	if err != nil {
-		return fmt.Errorf("failed to resolve UDP address: %v", err)
-	}
-
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		return fmt.Errorf("failed to bind UDP socket: %v", err)
-	}
-
-	wg.udp = conn
-	log.Printf("UDP socket listening on port %d", wg.listenPort)
-	return nil
-}
-
-// setupTUN creates and configures the TUN interface
-func (wg *MiniWG) setupTUN() error {
-	config := water.Config{
-		DeviceType: water.TUN,
-		PlatformSpecificParams: water.PlatformSpecificParams{
-			Name: wg.tunName,
-		},
-	}
-
-	iface, err := water.New(config)
-	if err != nil {
-		return fmt.Errorf("failed to create TUN interface: %v", err)
-	}
-
-	wg.tun = iface
-	log.Printf("TUN interface %s created", wg.tunName)
-	log.Printf("Configure with: ip addr add %s dev %s && ip link set %s up", wg.tunAddress, wg.tunName, wg.tunName)
-	return nil
-}
-
 func main() {
 	log.Println("MiniWG - Minimal WireGuard Implementation")
 
-	// Parse command line flags
 	configFile := flag.String("c", "", "Configuration file path")
 	flag.Parse()
 
@@ -178,21 +55,26 @@ func main() {
 
 	wg := &MiniWG{}
 
-	// Load configuration from file
 	if err := wg.loadConfig(*configFile); err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Setup UDP socket
 	if err := wg.setupUDP(); err != nil {
 		log.Fatalf("Failed to setup UDP socket: %v", err)
 	}
 
-	// Setup TUN interface
 	if err := wg.setupTUN(); err != nil {
 		log.Fatalf("Failed to setup TUN interface: %v", err)
 	}
 
+	// Initialize rekey timer but keep it stopped until session is established
+	// We create the timer now so it's ready to use, but stop it immediately
+	// to prevent firing during startup. It will be started when handshake completes.
+	wg.rekeyTimer = time.NewTimer(REKEY_AFTER_TIME)
+	wg.rekeyTimer.Stop()
+
 	fmt.Println("Network interfaces initialized successfully")
-	fmt.Println("TODO: Implement main event loop")
+	fmt.Println("Starting main event loop...")
+
+	wg.run()
 }
