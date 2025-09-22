@@ -27,6 +27,14 @@ type MiniWG struct {
 	peerIndex     uint32
 	lastHandshake time.Time
 
+	// Packet queuing during handshake
+	queuedPackets [][]byte // Packets waiting for session establishment
+
+	// Handshake state storage
+	initiatorState  *HandshakeInitiationState // Used when we initiate handshake
+	responderState  *HandshakeResponderState  // Used when peer initiates handshake
+	isHandshaking   bool                      // Prevent multiple simultaneous attempts
+
 	// Network interfaces
 	tun      *water.Interface
 	udp      *net.UDPConn
@@ -77,4 +85,31 @@ func main() {
 	fmt.Println("Starting main event loop...")
 
 	wg.run()
+}
+
+// queuePacket adds a packet to the queue while waiting for handshake completion
+func (wg *MiniWG) queuePacket(packet []byte) {
+	// Create a copy of the packet to avoid memory issues
+	packetCopy := make([]byte, len(packet))
+	copy(packetCopy, packet)
+
+	wg.queuedPackets = append(wg.queuedPackets, packetCopy)
+	log.Printf("Queued packet (%d bytes) - total queued: %d", len(packet), len(wg.queuedPackets))
+}
+
+// sendQueuedPackets processes all queued packets after session establishment
+func (wg *MiniWG) sendQueuedPackets() {
+	if len(wg.queuedPackets) == 0 {
+		return
+	}
+
+	log.Printf("Sending %d queued packets", len(wg.queuedPackets))
+
+	for _, packet := range wg.queuedPackets {
+		// TODO: Encrypt and send packet using transport.go functions
+		log.Printf("Sending queued packet (%d bytes)", len(packet))
+	}
+
+	// Clear the queue
+	wg.queuedPackets = nil
 }

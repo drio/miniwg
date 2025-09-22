@@ -189,8 +189,12 @@ func (wg *MiniWG) run() {
 func (wg *MiniWG) handleTUNPacket(packet []byte) {
 	if !wg.hasSession {
 		log.Printf("No session - queuing packet and initiating handshake")
-		// TODO: Queue packet for later transmission
+
+		// Queue the packet for later transmission
+		wg.queuePacket(packet)
+
 		// TODO: Initiate handshake if not already in progress
+		// TODO: Prevent multiple simultaneous handshake attempts
 		return
 	}
 
@@ -205,12 +209,76 @@ func (wg *MiniWG) handleHandshakeEvent(event HandshakeEvent) {
 
 	switch event.Type {
 	case HandshakeEventInitiation:
-		log.Println("TODO: Process handshake initiation")
-		// TODO: Use processHandshakeInitiation from handshake.go
+		// We are the RESPONDER - peer initiated handshake with us
+		log.Printf("Processing handshake initiation from %s", event.Addr)
+
+		// Step 1: Process the initiation message
+		var lastTimestamp [12]byte // TODO: Use actual last timestamp for replay protection
+		responderState, err := processHandshakeInitiation(
+			event.Data,
+			wg.privateKey,
+			wg.publicKey,
+			lastTimestamp,
+		)
+		if err != nil {
+			log.Printf("Failed to process handshake initiation: %v", err)
+			return
+		}
+
+		// Step 2: Store the responder state
+		wg.responderState = responderState
+
+		// Step 3: Create handshake response
+		responseMsg, finalState, err := createHandshakeResponse(responderState, wg.localIndex)
+		if err != nil {
+			log.Printf("Failed to create handshake response: %v", err)
+			return
+		}
+
+		// Step 4: Send response back to peer
+		responseBytes := responseMsg.Marshal()
+		_, err = wg.udp.WriteToUDP(responseBytes, event.Addr)
+		if err != nil {
+			log.Printf("Failed to send handshake response: %v", err)
+			return
+		}
+
+		log.Printf("Sent handshake response (%d bytes) to %s", len(responseBytes), event.Addr)
+
+		// Step 5: Extract transport keys and establish session
+		// TODO: Extract send/recv keys from finalState
+		// TODO: Set hasSession = true
+		// TODO: Send queued packets
+		log.Printf("TODO: Complete session establishment with final state: %p", finalState)
 
 	case HandshakeEventResponse:
-		log.Println("TODO: Process handshake response")
-		// TODO: Use processHandshakeResponse from handshake.go
+		// We are the INITIATOR - peer responded to our handshake
+		log.Printf("Processing handshake response from %s", event.Addr)
+
+		// Check if we have saved initiator state
+		if wg.initiatorState == nil {
+			log.Printf("Received handshake response but no initiator state saved - ignoring")
+			return
+		}
+
+		// Step 1: Process the response message
+		finalState, err := processHandshakeResponse(event.Data, wg.initiatorState)
+		if err != nil {
+			log.Printf("Failed to process handshake response: %v", err)
+			return
+		}
+
+		log.Printf("Handshake completed successfully with %s", event.Addr)
+
+		// Step 2: Extract transport keys and establish session
+		// TODO: Extract send/recv keys from finalState
+		// TODO: Set hasSession = true
+		// TODO: Send queued packets
+		log.Printf("TODO: Complete session establishment with final state: %p", finalState)
+
+		// Step 3: Clean up handshake state
+		wg.initiatorState = nil
+		wg.isHandshaking = false
 	}
 }
 
