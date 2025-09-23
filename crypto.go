@@ -15,6 +15,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"golang.org/x/crypto/blake2s"
@@ -246,7 +247,7 @@ func chachaPolyDecrypt(key [32]byte, nonce uint64, ciphertext []byte, additional
 // It's 12 bytes: first 8 bytes = seconds since 1970, last 4 bytes = nanoseconds.
 // The key property: it must ALWAYS increase. If we see a timestamp that's
 // older than the last one from a peer, we reject it as a replay attack.
-func generateTimestamp() [12]byte {
+func generateTimestamp() ([12]byte, error) {
 	var timestamp [12]byte
 
 	// Get current time
@@ -255,14 +256,27 @@ func generateTimestamp() [12]byte {
 	// TAI64N format:
 	// Bytes 0-7: seconds since 1970 TAI (big-endian)
 	// Bytes 8-11: nanoseconds within that second (big-endian)
-	seconds := uint64(now.Unix())
-	nanoseconds := uint32(now.Nanosecond())
+
+	// Validate Unix timestamp to prevent integer overflow
+	unixTime := now.Unix()
+	if unixTime < 0 {
+		// Should never happen with current system time, but prevents overflow
+		return [12]byte{}, fmt.Errorf("invalid timestamp: negative Unix time %d", unixTime)
+	}
+	seconds := uint64(unixTime)
+
+	// Validate nanoseconds (should always be 0-999,999,999)
+	nanoTime := now.Nanosecond()
+	if nanoTime < 0 || nanoTime > 999999999 {
+		return [12]byte{}, fmt.Errorf("invalid nanoseconds: %d", nanoTime)
+	}
+	nanoseconds := uint32(nanoTime)
 
 	// Store in big-endian format (TAI64N standard)
 	binary.BigEndian.PutUint64(timestamp[0:8], seconds)
 	binary.BigEndian.PutUint32(timestamp[8:12], nanoseconds)
 
-	return timestamp
+	return timestamp, nil
 }
 
 // validateTimestamp checks if timestamp is newer than last seen

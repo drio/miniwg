@@ -356,9 +356,15 @@ func TestChaCha20Poly1305AEAD(t *testing.T) {
 // TestTimestampFunctions tests TAI64N timestamp operations
 func TestTimestampFunctions(t *testing.T) {
 	t.Run("Timestamp generation", func(t *testing.T) {
-		timestamp := generateTimestamp()
+		timestamp, err := generateTimestamp()
+		if err != nil {
+			t.Fatalf("Failed to generate first timestamp: %v", err)
+		}
 
-		timestamp2 := generateTimestamp()
+		timestamp2, err := generateTimestamp()
+		if err != nil {
+			t.Fatalf("Failed to generate second timestamp: %v", err)
+		}
 
 		time1 := bytes.Compare(timestamp[:], timestamp2[:])
 		if time1 > 0 {

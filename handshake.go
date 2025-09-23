@@ -145,7 +145,10 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 
 	// Step 10: Encrypt timestamp
 	// msg.encrypted_timestamp = AEAD(key, 0, TAI64N(), initiator.hash)
-	timestamp := generateTimestamp()
+	timestamp, err := generateTimestamp()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate timestamp: %v", err)
+	}
 	encryptedTimestamp, err := chachaPolyEncrypt(state.tempKey2, 0, timestamp[:], state.hash[:])
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encrypt timestamp: %v", err)
