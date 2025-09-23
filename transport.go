@@ -13,7 +13,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"sync"
 )
@@ -25,14 +24,10 @@ func (wg *MiniWG) encryptPacket(plaintext []byte) ([]byte, error) {
 		return nil, fmt.Errorf("no active session - handshake required")
 	}
 
-	// Create 12-byte nonce from 8-byte counter (little-endian) + 4 zero bytes
-	var nonce [12]byte
-	binary.LittleEndian.PutUint64(nonce[:8], wg.sendNonce)
-	// Last 4 bytes remain zero as per WireGuard spec
-
 	// Encrypt plaintext with ChaCha20-Poly1305
 	// No associated data - authentication covers only the encrypted payload
-	ciphertext, err := chachaPolyEncrypt(wg.sendKey, 0, plaintext, nil)
+	// Use sendNonce counter to ensure unique nonces for each packet
+	ciphertext, err := chachaPolyEncrypt(wg.sendKey, wg.sendNonce, plaintext, nil)
 	if err != nil {
 		return nil, fmt.Errorf("encryption failed: %v", err)
 	}
@@ -71,12 +66,8 @@ func (wg *MiniWG) decryptPacket(transportData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("replay attack detected: counter %d <= last %d", counter, wg.recvCounter)
 	}
 
-	// Create nonce from counter (same format as encryption)
-	var nonce [12]byte
-	binary.LittleEndian.PutUint64(nonce[:8], counter)
-
-	// Decrypt with ChaCha20-Poly1305 using receive key
-	plaintext, err := chachaPolyDecrypt(wg.recvKey, 0, encryptedPayload, nil)
+	// Decrypt with ChaCha20-Poly1305 using receive key and message counter
+	plaintext, err := chachaPolyDecrypt(wg.recvKey, counter, encryptedPayload, nil)
 	if err != nil {
 		return nil, fmt.Errorf("decryption failed: %v", err)
 	}
