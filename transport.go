@@ -103,6 +103,11 @@ func (wg *MiniWG) establishSession(sendKey, recvKey [32]byte, peerIndex uint32) 
 	wg.sendNonce = 0
 	wg.recvCounter = 0
 	wg.hasSession = true
+
+	// Start the rekey timer for this session (if available)
+	if wg.rekeyTimer != nil {
+		wg.rekeyTimer.Reset(REKEY_AFTER_TIME)
+	}
 }
 
 // resetSession clears session state (called on rekey or errors)
@@ -116,6 +121,11 @@ func (wg *MiniWG) resetSession() {
 	wg.sendNonce = 0
 	wg.recvCounter = 0
 	wg.peerIndex = 0
+
+	// Stop the rekey timer when session is reset (if available)
+	if wg.rekeyTimer != nil {
+		wg.rekeyTimer.Stop()
+	}
 }
 
 // Traffic handling helpers

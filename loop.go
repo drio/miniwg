@@ -199,8 +199,9 @@ func (wg *MiniWG) handleTUNPacket(packet []byte) {
 	}
 
 	log.Printf("Session active - encrypting and forwarding packet")
-	// TODO: Encrypt packet using transport.go functions
-	// TODO: Send encrypted packet via UDP
+	if err := wg.handleTunnelTraffic(packet); err != nil {
+		log.Printf("Failed to send encrypted packet: %v", err)
+	}
 }
 
 // handleHandshakeEvent processes handshake messages
@@ -246,10 +247,20 @@ func (wg *MiniWG) handleHandshakeEvent(event HandshakeEvent) {
 		log.Printf("Sent handshake response (%d bytes) to %s", len(responseBytes), event.Addr)
 
 		// Step 5: Extract transport keys and establish session
-		// TODO: Extract send/recv keys from finalState
-		// TODO: Set hasSession = true
-		// TODO: Send queued packets
-		log.Printf("TODO: Complete session establishment with final state: %p", finalState)
+		sendKey, recvKey, err := deriveTransportKeys(finalState.chainingKey)
+		if err != nil {
+			log.Printf("Failed to derive transport keys: %v", err)
+			return
+		}
+
+		// Establish the session with the derived keys
+		// For responder: we send with our derived key, receive with initiator's derived key
+		wg.establishSession(recvKey, sendKey, responderState.initiatorSenderIndex)
+
+		log.Printf("Session established with %s - keys derived and stored", event.Addr)
+
+		// Send any packets that were queued during handshake
+		wg.sendQueuedPackets()
 
 	case HandshakeEventResponse:
 		// We are the INITIATOR - peer responded to our handshake
@@ -261,7 +272,14 @@ func (wg *MiniWG) handleHandshakeEvent(event HandshakeEvent) {
 			return
 		}
 
-		// Step 1: Process the response message
+		// Step 1: Parse response message to get responder's sender index
+		var response HandshakeResponse
+		if err := response.Unmarshal(event.Data); err != nil {
+			log.Printf("Failed to unmarshal handshake response: %v", err)
+			return
+		}
+
+		// Step 2: Process the response message
 		finalState, err := processHandshakeResponse(event.Data, wg.initiatorState)
 		if err != nil {
 			log.Printf("Failed to process handshake response: %v", err)
@@ -270,13 +288,24 @@ func (wg *MiniWG) handleHandshakeEvent(event HandshakeEvent) {
 
 		log.Printf("Handshake completed successfully with %s", event.Addr)
 
-		// Step 2: Extract transport keys and establish session
-		// TODO: Extract send/recv keys from finalState
-		// TODO: Set hasSession = true
-		// TODO: Send queued packets
-		log.Printf("TODO: Complete session establishment with final state: %p", finalState)
+		// Step 3: Extract transport keys and establish session
+		sendKey, recvKey, err := deriveTransportKeys(finalState.chainingKey)
+		if err != nil {
+			log.Printf("Failed to derive transport keys: %v", err)
+			return
+		}
 
-		// Step 3: Clean up handshake state
+		// Establish the session with the derived keys
+		// For initiator: we send with our derived key, receive with responder's derived key
+		// Use responder's sender index as our peer index
+		wg.establishSession(sendKey, recvKey, response.Sender)
+
+		log.Printf("Session established with %s - keys derived and stored", event.Addr)
+
+		// Send any packets that were queued during handshake
+		wg.sendQueuedPackets()
+
+		// Step 4: Clean up handshake state
 		wg.initiatorState = nil
 		wg.isHandshaking = false
 	}

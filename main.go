@@ -106,8 +106,11 @@ func (wg *MiniWG) sendQueuedPackets() {
 	log.Printf("Sending %d queued packets", len(wg.queuedPackets))
 
 	for _, packet := range wg.queuedPackets {
-		// TODO: Encrypt and send packet using transport.go functions
-		log.Printf("Sending queued packet (%d bytes)", len(packet))
+		if err := wg.handleTunnelTraffic(packet); err != nil {
+			log.Printf("Failed to send queued packet: %v", err)
+		} else {
+			log.Printf("Sent queued packet (%d bytes)", len(packet))
+		}
 	}
 
 	// Clear the queue
