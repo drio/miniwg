@@ -14,3 +14,4 @@ node_modules
 *.mp4
 docs/CURRENT_STATUS.md
 miniwg
+bin

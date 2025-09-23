@@ -9,7 +9,7 @@
 #   vet      - Run go vet
 #   security - Run security scans on packages
 
-.PHONY: all build test clean run fmt vet security vulncheck help
+.PHONY: all build test clean run fmt vet security gosec vulncheck help
 
 # Default target
 all: build
@@ -57,13 +57,18 @@ install-security-tools:
 	@echo "Installing security scanning tools..."
 	@which govulncheck > /dev/null || (echo "Installing govulncheck..." && go install golang.org/x/vuln/cmd/govulncheck@latest)
 
+# Run gosec security scanner
+gosec:
+	@echo "Running gosec security scanner..."
+	./bin/gosec ./...
+
 # Run vulnerability scanner
 vulncheck: install-security-tools
 	@echo "Running vulnerability scanner..."
 	govulncheck ./...
 
 # Run all security checks
-security: vulncheck
+security: gosec vulncheck
 	@echo "Security scanning complete"
 
 # Run all quality and security checks
@@ -79,6 +84,7 @@ help:
 	@echo "  run           - Build and run miniwg"
 	@echo "  fmt           - Format Go code"
 	@echo "  vet           - Run go vet"
+	@echo "  gosec         - Run gosec security scanner"
 	@echo "  vulncheck     - Run vulnerability scanner"
 	@echo "  security      - Run all security checks"
 	@echo "  check         - Run fmt, vet, test, and security"
