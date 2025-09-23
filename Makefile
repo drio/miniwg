@@ -1,5 +1,5 @@
 # Makefile for MiniWG - Minimal WireGuard Implementation
-# 
+#
 # Targets:
 #   build    - Build the miniwg binary
 #   test     - Run all tests
@@ -7,8 +7,9 @@
 #   run      - Build and run miniwg
 #   fmt      - Format Go code
 #   vet      - Run go vet
+#   security - Run security scans on packages
 
-.PHONY: all build test clean run fmt vet help
+.PHONY: all build test clean run fmt vet security vulncheck help
 
 # Default target
 all: build
@@ -49,8 +50,24 @@ vet:
 	@echo "Running go vet..."
 	go vet .
 
-# Run all quality checks
-check: fmt vet test
+# Security scanning targets
+
+# Install security tools if needed
+install-security-tools:
+	@echo "Installing security scanning tools..."
+	@which govulncheck > /dev/null || (echo "Installing govulncheck..." && go install golang.org/x/vuln/cmd/govulncheck@latest)
+
+# Run vulnerability scanner
+vulncheck: install-security-tools
+	@echo "Running vulnerability scanner..."
+	govulncheck ./...
+
+# Run all security checks
+security: vulncheck
+	@echo "Security scanning complete"
+
+# Run all quality and security checks
+check: fmt vet test security
 
 # Show available targets
 help:
@@ -62,5 +79,7 @@ help:
 	@echo "  run           - Build and run miniwg"
 	@echo "  fmt           - Format Go code"
 	@echo "  vet           - Run go vet"
-	@echo "  check         - Run fmt, vet, and test"
+	@echo "  vulncheck     - Run vulnerability scanner"
+	@echo "  security      - Run all security checks"
+	@echo "  check         - Run fmt, vet, test, and security"
 	@echo "  help          - Show this help message"
