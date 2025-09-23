@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -15,7 +16,15 @@ import (
 )
 
 func (wg *MiniWG) loadConfig(configFile string) error {
-	file, err := os.Open(configFile)
+	// Validate and clean the config file path to prevent directory traversal
+	cleanPath := filepath.Clean(configFile)
+
+	// Ensure the path doesn't contain directory traversal attempts
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("invalid config file path: directory traversal not allowed")
+	}
+
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		return fmt.Errorf("failed to open config file: %v", err)
 	}
