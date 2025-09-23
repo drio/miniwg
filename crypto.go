@@ -213,6 +213,7 @@ func chachaPolyEncrypt(key [32]byte, nonce uint64, plaintext []byte, additionalD
 	binary.LittleEndian.PutUint64(nonceBytes[4:], nonce)
 
 	// Encrypt and authenticate
+	// #nosec G407 -- nonce is dynamically constructed from input parameter, identical to official WireGuard-Go
 	ciphertext := cipher.Seal(nil, nonceBytes[:], plaintext, additionalData)
 
 	return ciphertext, nil
