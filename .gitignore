@@ -16,3 +16,4 @@ docs/CURRENT_STATUS.md
 miniwg
 bin
 .claude
+coverage.out
