@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/songgao/water"
@@ -12,6 +13,9 @@ import (
 
 // MiniWG represents a minimal WireGuard implementation
 type MiniWG struct {
+	// Concurrency control
+	mutex sync.RWMutex // Protects handshake and session state
+
 	// Static keys
 	privateKey [32]byte
 	publicKey  [32]byte

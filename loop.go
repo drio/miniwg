@@ -11,6 +11,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 )
@@ -193,8 +194,10 @@ func (wg *MiniWG) handleTUNPacket(packet []byte) {
 		// Queue the packet for later transmission
 		wg.queuePacket(packet)
 
-		// TODO: Initiate handshake if not already in progress
-		// TODO: Prevent multiple simultaneous handshake attempts
+		// Initiate handshake if not already in progress
+		if err := wg.initiateHandshake(); err != nil {
+			log.Printf("Failed to initiate handshake: %v", err)
+		}
 		return
 	}
 
@@ -325,5 +328,71 @@ func (wg *MiniWG) handleTimerEvent(event TimerEvent) {
 	case TimerEventRetry:
 		log.Println("TODO: Retry handshake")
 	}
+}
+
+// initiateHandshake starts a new handshake with the configured peer
+// Uses double-checked locking pattern like WireGuard-Go to prevent races
+func (wg *MiniWG) initiateHandshake() error {
+	// First check with RLock (fast path)
+	wg.mutex.RLock()
+	if wg.isHandshaking {
+		wg.mutex.RUnlock()
+		log.Printf("Handshake already in progress - skipping initiation")
+		return nil
+	}
+	wg.mutex.RUnlock()
+
+	// Check if we have peer configuration
+	if wg.peerAddr == nil {
+		return fmt.Errorf("no peer endpoint configured")
+	}
+
+	// Double-checked locking: acquire write lock and check again
+	wg.mutex.Lock()
+	defer wg.mutex.Unlock()
+
+	if wg.isHandshaking {
+		log.Printf("Handshake already in progress - skipping initiation")
+		return nil
+	}
+
+	log.Printf("Initiating handshake with peer %s", wg.peerAddr)
+
+	// Mark handshake as in progress
+	wg.isHandshaking = true
+
+	// Create handshake initiation message (unlock first to avoid long critical section)
+	wg.mutex.Unlock()
+	initiationMsg, initiatorState, err := createHandshakeInitiation(
+		wg.privateKey,
+		wg.publicKey,
+		wg.peerKey,
+		wg.localIndex,
+	)
+	wg.mutex.Lock()
+
+	if err != nil {
+		wg.isHandshaking = false
+		return fmt.Errorf("failed to create handshake initiation: %v", err)
+	}
+
+	// Store initiator state for processing the response
+	wg.initiatorState = initiatorState
+
+	// Send initiation message to peer (unlock for network I/O)
+	initiationBytes := initiationMsg.Marshal()
+	wg.mutex.Unlock()
+	_, err = wg.udp.WriteToUDP(initiationBytes, wg.peerAddr)
+	wg.mutex.Lock()
+
+	if err != nil {
+		// Clean up state on send failure
+		wg.isHandshaking = false
+		wg.initiatorState = nil
+		return fmt.Errorf("failed to send handshake initiation: %v", err)
+	}
+
+	log.Printf("Sent handshake initiation (%d bytes) to %s", len(initiationBytes), wg.peerAddr)
+	return nil
 }
 
