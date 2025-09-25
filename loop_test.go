@@ -207,3 +207,88 @@ func createTestMiniWG(t *testing.T) *MiniWG {
 	return wg
 }
 
+// TestGetMessageType tests the message type detection functionality
+func TestGetMessageType(t *testing.T) {
+	wg := &MiniWG{}
+
+	tests := []struct {
+		name     string
+		packet   []byte
+		expected uint8
+	}{
+		{
+			name:     "Empty packet",
+			packet:   []byte{},
+			expected: 0,
+		},
+		{
+			name:     "Handshake initiation message",
+			packet:   []byte{MessageTypeHandshakeInitiation, 0x01, 0x02, 0x03},
+			expected: MessageTypeHandshakeInitiation,
+		},
+		{
+			name:     "Handshake response message",
+			packet:   []byte{MessageTypeHandshakeResponse, 0x04, 0x05, 0x06},
+			expected: MessageTypeHandshakeResponse,
+		},
+		{
+			name:     "Transport data message",
+			packet:   []byte{MessageTypeTransportData, 0x07, 0x08, 0x09},
+			expected: MessageTypeTransportData,
+		},
+		{
+			name:     "Unknown message type",
+			packet:   []byte{99, 0x0a, 0x0b, 0x0c},
+			expected: 99,
+		},
+		{
+			name:     "Single byte packet",
+			packet:   []byte{MessageTypeHandshakeInitiation},
+			expected: MessageTypeHandshakeInitiation,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := wg.getMessageType(tt.packet)
+			if result != tt.expected {
+				t.Errorf("getMessageType() = %d, expected %d", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestQueuePacket(t *testing.T) {
+	t.Run("Queue single packet", func(t *testing.T) {
+		wg := &MiniWG{}
+		testPacket := []byte{0x45, 0x00, 0x00, 0x1c}
+
+		wg.queuePacket(testPacket)
+
+		if len(wg.queuedPackets) != 1 {
+			t.Errorf("Expected 1 queued packet, got %d", len(wg.queuedPackets))
+		}
+
+		if len(wg.queuedPackets[0]) != len(testPacket) {
+			t.Errorf("Expected queued packet length %d, got %d", len(testPacket), len(wg.queuedPackets[0]))
+		}
+	})
+
+	t.Run("Queue multiple packets", func(t *testing.T) {
+		wg := &MiniWG{}
+		packets := [][]byte{
+			{0x01, 0x02, 0x03},
+			{0x04, 0x05, 0x06, 0x07},
+			{0x08},
+		}
+
+		for _, packet := range packets {
+			wg.queuePacket(packet)
+		}
+
+		if len(wg.queuedPackets) != len(packets) {
+			t.Errorf("Expected %d queued packets, got %d", len(packets), len(wg.queuedPackets))
+		}
+	})
+}
+
