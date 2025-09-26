@@ -182,6 +182,10 @@ func (wg *MiniWG) run() {
 
 		case timer := <-timerEvents:
 			wg.handleTimerEvent(timer)
+
+		case <-wg.done:
+			log.Println("MiniWG main event loop shutting down")
+			return
 		}
 	}
 }

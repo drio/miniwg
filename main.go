@@ -7,9 +7,30 @@ import (
 	"net"
 	"sync"
 	"time"
-
-	"github.com/songgao/water"
 )
+
+// UDPConn interface for UDP connections - allows mocking for tests
+type UDPConn interface {
+	ReadFromUDP([]byte) (int, *net.UDPAddr, error)
+	WriteToUDP([]byte, *net.UDPAddr) (int, error)
+	Close() error
+}
+
+// TUNDevice interface for TUN devices - allows mocking for tests
+type TUNDevice interface {
+	Read([]byte) (int, error)
+	Write([]byte) (int, error)
+	Close() error
+}
+
+// MiniWGConfig holds configuration for creating a MiniWG instance
+type MiniWGConfig struct {
+	PrivateKey [32]byte
+	PublicKey  [32]byte
+	PeerKey    [32]byte
+	LocalIndex uint32
+	PeerAddr   *net.UDPAddr
+}
 
 // MiniWG represents a minimal WireGuard implementation
 type MiniWG struct {
@@ -40,8 +61,8 @@ type MiniWG struct {
 	isHandshaking   bool                      // Prevent multiple simultaneous attempts
 
 	// Network interfaces
-	tun      *water.Interface
-	udp      *net.UDPConn
+	tun      TUNDevice
+	udp      UDPConn
 	peerAddr *net.UDPAddr
 
 	// Basic timers
@@ -53,6 +74,61 @@ type MiniWG struct {
 	listenPort int
 	tunName    string
 	tunAddress string
+
+	// Shutdown coordination (minimal approach for learning)
+	// Note: WireGuard-Go uses atomic state + WaitGroups + reference counting
+	// for production-grade shutdown with proper goroutine coordination and
+	// cleanup ordering. This simple approach works for educational purposes.
+	done chan struct{}
+}
+
+// NewMiniWG creates a new MiniWG instance with proper initialization
+func NewMiniWG(tun TUNDevice, udp UDPConn, config MiniWGConfig) *MiniWG {
+	wg := &MiniWG{
+		// Network interfaces
+		tun:      tun,
+		udp:      udp,
+		peerAddr: config.PeerAddr,
+
+		// Keys
+		privateKey: config.PrivateKey,
+		publicKey:  config.PublicKey,
+		peerKey:    config.PeerKey,
+		localIndex: config.LocalIndex,
+
+		// Session state
+		hasSession:    false,
+		isHandshaking: false,
+		sendNonce:     0,
+		recvCounter:   0,
+
+		// Initialize timer but keep it stopped until session is established
+		rekeyTimer: time.NewTimer(REKEY_AFTER_TIME),
+
+		// Initialize shutdown channel
+		done: make(chan struct{}),
+	}
+
+	// Stop timer initially - will be started when handshake completes
+	wg.rekeyTimer.Stop()
+
+	return wg
+}
+
+// Close shuts down the MiniWG instance
+// Production note: WireGuard-Go uses atomic state management, WaitGroups for
+// goroutine coordination, and reference-counted queues to ensure all components
+// shut down cleanly without race conditions. This minimal approach works for
+// educational purposes but lacks the robustness needed for production use.
+func (wg *MiniWG) Close() error {
+	close(wg.done)
+	if wg.tun != nil {
+		wg.tun.Close()
+	}
+	if wg.udp != nil {
+		wg.udp.Close()
+	}
+	return nil
 }
 
 func main() {
