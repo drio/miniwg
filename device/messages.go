@@ -1,13 +1,12 @@
 // messages.go
 
-package main
+package device
 
 import (
 	"encoding/binary"
 	"errors"
 )
 
-// Protocol constants from WireGuard specification
 const (
 	CONSTRUCTION = "Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s"
 	IDENTIFIER   = "WireGuard v1 zx2c4 Jason@zx2c4.com"

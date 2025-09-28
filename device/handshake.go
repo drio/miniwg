@@ -10,7 +10,7 @@
 // - Static and ephemeral key mixing
 // - Transport key derivation after successful handshake
 
-package main
+package device
 
 import (
 	"fmt"
@@ -23,7 +23,6 @@ type HandshakeInitiationState struct {
 	chainingKey [32]byte // Ci in the spec
 	hash        [32]byte // Hi in the spec
 
-	// Ephemeral keys for this handshake
 	ephemeralPrivate [32]byte
 	ephemeralPublic  [32]byte
 
@@ -37,7 +36,6 @@ type HandshakeInitiationState struct {
 	encryptedStatic    [48]byte // 32 bytes + 16 byte auth tag
 	encryptedTimestamp [28]byte // 12 bytes + 16 byte auth tag
 
-	// Intermediate values for debugging
 	tempKey1 [32]byte
 	tempKey2 [32]byte
 }
@@ -72,7 +70,7 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 
 	// Step 3: Generate ephemeral keypair
 	// initiator.ephemeral_private = DH_GENERATE()
-	ephemeralPriv, ephemeralPub, err := generateKeypair()
+	ephemeralPriv, ephemeralPub, err := GenerateKeypair()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate ephemeral keypair: %v", err)
 	}
@@ -163,14 +161,13 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 	temp5 := append(state.hash[:], state.encryptedTimestamp[:]...)
 	state.hash = blake2sHash(temp5)
 
-	// Step 12: Create the message structure with MAC calculations
+	// Step 12: Create the message structure
 	msg := &HandshakeInitiation{
 		Type:      MessageTypeHandshakeInitiation,
 		Sender:    state.senderIndex,
 		Ephemeral: state.ephemeralPublic,
 		Static:    state.encryptedStatic,
 		Timestamp: state.encryptedTimestamp,
-		// MAC1 and MAC2 will be calculated below
 	}
 
 	// Step 13: Calculate MAC1 and MAC2
@@ -178,17 +175,15 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 	msgBytes := msg.Marshal()
 	msgBytesForMAC1 := msgBytes[:len(msgBytes)-32] // Exclude MAC1(16) + MAC2(16) = 32 bytes
 
-	// Calculate MAC1
 	mac1, err := calculateMAC1(msgBytesForMAC1, state.peerStaticPublic)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate MAC1: %v", err)
 	}
 	msg.MAC1 = mac1
 
-	// Calculate MAC2 (no cookie for now, so will be zeros)
 	msgBytes = msg.Marshal()
-	msgBytesForMAC2 := msgBytes[:len(msgBytes)-16] // Exclude MAC2(16) bytes
-	mac2 := calculateMAC2(msgBytesForMAC2, nil)    // No cookie
+	msgBytesForMAC2 := msgBytes[:len(msgBytes)-16]
+	mac2 := calculateMAC2(msgBytesForMAC2, nil)
 	msg.MAC2 = mac2
 
 	return msg, state, nil
@@ -211,7 +206,6 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 func calculateMAC1(messageBytes []byte, peerStaticPublic [32]byte) ([16]byte, error) {
 	var result [16]byte
 
-	// Create MAC key: HASH(LABEL_MAC1 || peer_static_public)
 	labelMac1 := []byte(LABEL_MAC1) // "mac1----"
 	keyInput := append(labelMac1, peerStaticPublic[:]...)
 	macKey := blake2sHash(keyInput)
@@ -307,7 +301,7 @@ func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub
 	state.initiatorEphemeralPublic = msg.Ephemeral
 
 	// Step 2: Validate MAC1 - proves sender knows our static public key
-	msgBytesForMAC1 := messageBytes[:len(messageBytes)-32] // Exclude MAC1(16) + MAC2(16)
+	msgBytesForMAC1 := messageBytes[:len(messageBytes)-32]
 	expectedMAC1, err := calculateMAC1(msgBytesForMAC1, state.ourStaticPublic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate expected MAC1: %v", err)
@@ -328,12 +322,10 @@ func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub
 	}
 
 	// Step 4: Sync cryptographic ledger - perform same operations as initiator
-	// responder.chaining_key = HASH(CONSTRUCTION)
 	construction := []byte(CONSTRUCTION)
 	state.chainingKey = blake2sHash(construction)
 
 	// Step 5: Initialize hash (sync with initiator)
-	// responder.hash = HASH(HASH(responder.chaining_key || IDENTIFIER) || responder.static_public)
 	identifier := []byte(IDENTIFIER)
 	temp := append(state.chainingKey[:], identifier...)
 	tempHash := blake2sHash(temp)
@@ -341,7 +333,6 @@ func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub
 	state.hash = blake2sHash(temp2)
 
 	// Step 6: Mix received ephemeral public key into hash (sync with initiator)
-	// responder.hash = HASH(responder.hash || received_ephemeral_public)
 	temp3 := append(state.hash[:], state.initiatorEphemeralPublic[:]...)
 	state.hash = blake2sHash(temp3)
 
@@ -400,7 +391,6 @@ func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub
 	}
 	copy(state.receivedTimestamp[:], decryptedTimestamp)
 
-	// Validate timestamp for replay protection
 	state.timestampValid = validateTimestamp(state.receivedTimestamp, lastTimestamp)
 
 	if !state.timestampValid {
@@ -421,7 +411,7 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 
 	// Step 1: Generate ephemeral keypair for responder
 	// This ephemeral key will be used for the final DH operations to derive transport keys
-	responderEphPriv, responderEphPub, err := generateKeypair()
+	responderEphPriv, responderEphPub, err := GenerateKeypair()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate responder ephemeral keypair: %v", err)
 	}
@@ -471,7 +461,6 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 	// The PSK provides post-quantum resistance when available
 	var presharedKey [32]byte // All zeros for minimal implementation
 
-	// Use KDF3 to derive both the next chaining key and temporary encryption key
 	// This is the final key derivation step before transport key generation
 	newChainingKey4, temp2, encryptKey, err := kdf3(responderState.chainingKey[:], presharedKey[:])
 	if err != nil {
@@ -616,7 +605,6 @@ func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeIni
 	// Step 8: Mix pre-shared key (zeros for minimal implementation)
 	var presharedKey [32]byte // All zeros for minimal implementation
 
-	// Use KDF3 to derive the same keys as responder did
 	newChainingKey4, temp2, decryptKey, err := kdf3(initiatorState.chainingKey[:], presharedKey[:])
 	if err != nil {
 		return nil, fmt.Errorf("kdf3 failed for preshared key: %v", err)

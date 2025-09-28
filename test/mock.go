@@ -1,8 +1,15 @@
-package main
+package test
 
 import (
 	"net"
+
+	"github.com/drio/miniwg/conn"
+	"github.com/drio/miniwg/tun"
 )
+
+// Compile-time interface compliance checks
+var _ conn.UDPConn = (*MockUDPConn)(nil)
+var _ tun.TUNDevice = (*MockTUN)(nil)
 
 // MockUDPConn simulates a UDP connection using channels
 type MockUDPConn struct {

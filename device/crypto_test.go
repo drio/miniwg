@@ -1,4 +1,4 @@
-package main
+package device
 
 import (
 	"bytes"
@@ -9,12 +9,12 @@ import (
 // TestCurve25519Operations tests key generation and DH operations
 func TestCurve25519Operations(t *testing.T) {
 	t.Run("Key generation", func(t *testing.T) {
-		priv, pub, err := generateKeypair()
+		priv, pub, err := GenerateKeypair()
 		if err != nil {
 			t.Fatalf("failed to generate keypair: %v", err)
 		}
 
-		priv2, pub2, err := generateKeypair()
+		priv2, pub2, err := GenerateKeypair()
 		if err != nil {
 			t.Fatalf("failed to generate second keypair: %v", err)
 		}
@@ -29,17 +29,16 @@ func TestCurve25519Operations(t *testing.T) {
 	})
 
 	t.Run("Diffie-Hellman key exchange", func(t *testing.T) {
-		alicePriv, alicePub, err := generateKeypair()
+		alicePriv, alicePub, err := GenerateKeypair()
 		if err != nil {
 			t.Fatalf("failed to generate Alice's keypair: %v", err)
 		}
 
-		bobPriv, bobPub, err := generateKeypair()
+		bobPriv, bobPub, err := GenerateKeypair()
 		if err != nil {
 			t.Fatalf("failed to generate Bob's keypair: %v", err)
 		}
 
-		// Both arrive to the same key by using their own private key and the other person's public key
 		sharedAlice, err := dhOperation(alicePriv, bobPub)
 		if err != nil {
 			t.Fatalf("Alice's DH operation failed: %v", err)
@@ -116,7 +115,6 @@ func TestBLAKE2sOperations(t *testing.T) {
 		}
 	})
 
-	// Another way to compute MACs.
 	// It is more computationally intensive
 	t.Run("BLAKE2s HMAC", func(t *testing.T) {
 		key := []byte("test key for HMAC")

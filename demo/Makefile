@@ -1,4 +1,7 @@
-# Makefile for MiniWG peer-to-peer testing
+# Makefile for MiniWG demonstration and manual testing
+#
+# This directory contains configuration files and tools for demonstrating
+# MiniWG functionality and conducting manual peer-to-peer testing.
 #
 RAVEN_IP = 192.168.8.43
 FWORK_IP = 192.168.8.64
@@ -11,7 +14,7 @@ clean:
 
 # Build the MiniWG binary
 build:
-	cd .. && go build -o tests/miniwg .
+	cd .. && go build -o demo/miniwg .
 
 # Start peer1
 peer1: build

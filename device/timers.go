@@ -9,11 +9,10 @@
 // - Timer cleanup and reset functions
 // - Basic timer state tracking
 
-package main
+package device
 
 import "time"
 
-// Timer constants from WireGuard specification
 const (
 	REKEY_AFTER_TIME  = 120 * time.Second
 	REJECT_AFTER_TIME = 180 * time.Second

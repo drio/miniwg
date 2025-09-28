@@ -8,7 +8,7 @@
 // deadlocks. When buffers are full, packets/events are dropped with logging,
 // ensuring the system remains responsive under load rather than blocking.
 
-package main
+package device
 
 import (
 	"fmt"
@@ -16,36 +16,32 @@ import (
 	"net"
 )
 
-// Handshake event type constants
 const (
 	HandshakeEventInitiation = "initiation"
 	HandshakeEventResponse   = "response"
 )
 
-// Timer event type constants
 const (
 	TimerEventRekey     = "rekey"
 	TimerEventKeepalive = "keepalive"
 	TimerEventRetry     = "retry"
 )
 
-// Network and buffer size constants
 const (
-	StandardMTU        = 1500 // Standard Ethernet MTU
-	WireGuardMaxPacket = 2048 // WireGuard maximum packet size
-	QueuedPacketBuffer = 100  // Buffer size for queued packets channel
-	EventBuffer        = 10   // Buffer size for event channels
+	StandardMTU        = 1500
+	WireGuardMaxPacket = 2048
+	QueuedPacketBuffer = 100
+	EventBuffer        = 10
 )
 
-// Event types for the main coordination loop
 type HandshakeEvent struct {
-	Type string      // HandshakeEventInitiation, HandshakeEventResponse
+	Type string
 	Data []byte
 	Addr *net.UDPAddr
 }
 
 type TimerEvent struct {
-	Type string // TimerEventRekey, TimerEventKeepalive, TimerEventRetry
+	Type string
 }
 
 // Channel for queuing outbound packets during handshake
@@ -142,36 +138,30 @@ func (wg *MiniWG) udpReader(handshakeChan chan<- HandshakeEvent) {
 func (wg *MiniWG) timerManager(timerChan chan<- TimerEvent) {
 	log.Println("Timer manager started")
 
-	// Use range to listen for timer events
 	for range wg.rekeyTimer.C {
 		// Non-blocking send - drop timer event if main loop is overwhelmed
 		select {
 		case timerChan <- TimerEvent{Type: TimerEventRekey}:
-			// Timer event queued successfully
 		default:
 			log.Printf("Timer event dropped - queue full")
 		}
-		// Reset timer for next rekey interval
 		wg.rekeyTimer.Reset(REKEY_AFTER_TIME)
 		// TODO: Add keepalive and retry timers using additional goroutines
 	}
 }
 
 // run starts the main event loop that coordinates all WireGuard operations
-func (wg *MiniWG) run() {
+func (wg *MiniWG) Run() {
 	log.Println("Starting MiniWG main event loop")
 
-	// Create communication channels
 	queuedPackets := make(chan QueuedPacket, QueuedPacketBuffer)
 	handshakeEvents := make(chan HandshakeEvent, EventBuffer)
 	timerEvents := make(chan TimerEvent, EventBuffer)
 
-	// Start goroutines
 	go wg.tunReader(queuedPackets)
 	go wg.udpReader(handshakeEvents)
 	go wg.timerManager(timerEvents)
 
-	// Main coordination loop
 	for {
 		select {
 		case packet := <-queuedPackets:
@@ -302,17 +292,13 @@ func (wg *MiniWG) handleHandshakeEvent(event HandshakeEvent) {
 			return
 		}
 
-		// Establish the session with the derived keys
 		// For initiator: we send with our derived key, receive with responder's derived key
-		// Use responder's sender index as our peer index
 		wg.establishSession(sendKey, recvKey, response.Sender)
 
 		log.Printf("Session established with %s - keys derived and stored", event.Addr)
 
-		// Send any packets that were queued during handshake
 		wg.sendQueuedPackets()
 
-		// Step 4: Clean up handshake state
 		wg.initiatorState = nil
 		wg.isHandshaking = false
 	}
@@ -337,7 +323,6 @@ func (wg *MiniWG) handleTimerEvent(event TimerEvent) {
 // initiateHandshake starts a new handshake with the configured peer
 // Uses double-checked locking pattern like WireGuard-Go to prevent races
 func (wg *MiniWG) initiateHandshake() error {
-	// First check with RLock (fast path)
 	wg.mutex.RLock()
 	if wg.isHandshaking {
 		wg.mutex.RUnlock()
@@ -365,7 +350,6 @@ func (wg *MiniWG) initiateHandshake() error {
 	// Mark handshake as in progress
 	wg.isHandshaking = true
 
-	// Create handshake initiation message (unlock first to avoid long critical section)
 	wg.mutex.Unlock()
 	initiationMsg, initiatorState, err := createHandshakeInitiation(
 		wg.privateKey,
@@ -399,4 +383,3 @@ func (wg *MiniWG) initiateHandshake() error {
 	log.Printf("Sent handshake initiation (%d bytes) to %s", len(initiationBytes), wg.peerAddr)
 	return nil
 }
-

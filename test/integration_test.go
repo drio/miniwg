@@ -1,9 +1,11 @@
-package main
+package test
 
 import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/drio/miniwg/device"
 )
 
 // TestCompleteWireGuardProtocol validates the entire WireGuard implementation end-to-end.
@@ -16,11 +18,11 @@ import (
 // If any component fails, no packet appears on peer2's TUN (fail-closed security).
 func TestCompleteWireGuardProtocol(t *testing.T) {
 	// Generate keys for both peers first
-	peer1Priv, peer1Pub, err := generateKeypair()
+	peer1Priv, peer1Pub, err := device.GenerateKeypair()
 	if err != nil {
 		t.Fatalf("Failed to generate peer1 keys: %v", err)
 	}
-	peer2Priv, peer2Pub, err := generateKeypair()
+	peer2Priv, peer2Pub, err := device.GenerateKeypair()
 	if err != nil {
 		t.Fatalf("Failed to generate peer2 keys: %v", err)
 	}
@@ -80,13 +82,13 @@ func TestCompleteWireGuardProtocol(t *testing.T) {
 }
 
 // createTestPeer creates a MiniWG instance with mock interfaces
-func createTestPeer(t *testing.T, peerNum int, privateKey, publicKey, peerPubKey [32]byte) *MiniWG {
+func createTestPeer(t *testing.T, peerNum int, privateKey, publicKey, peerPubKey [32]byte) *device.MiniWG {
 	// Create mock interfaces
 	mockTUN := NewMockTUN()
 	mockUDP := NewMockUDPConn(51820 + peerNum)
 
 	// Create configuration
-	config := MiniWGConfig{
+	config := device.MiniWGConfig{
 		PrivateKey: privateKey,
 		PublicKey:  publicKey,
 		PeerKey:    peerPubKey,
@@ -98,11 +100,11 @@ func createTestPeer(t *testing.T, peerNum int, privateKey, publicKey, peerPubKey
 	}
 
 	// Use constructor for proper initialization
-	return NewMiniWG(mockTUN, mockUDP, config)
+	return device.NewMiniWG(mockTUN, mockUDP, config)
 }
 
 // connectUDPChannels cross-connects two peers' UDP channels
-func connectUDPChannels(peer1, peer2 *MiniWG) {
+func connectUDPChannels(peer1, peer2 *device.MiniWG) {
 	udp1 := peer1.udp.(*MockUDPConn)
 	udp2 := peer2.udp.(*MockUDPConn)
 
@@ -143,4 +145,3 @@ func connectUDPChannels(peer1, peer2 *MiniWG) {
 		}
 	}()
 }
-

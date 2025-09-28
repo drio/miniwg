@@ -6,7 +6,7 @@
 // - Handshake event handling
 // - Session establishment integration
 
-package main
+package device
 
 import (
 	"net"
@@ -26,7 +26,6 @@ func TestInitiateHandshake(t *testing.T) {
 		}
 		wg.peerAddr = peerAddr
 
-		// Should succeed on first call
 		err = wg.initiateHandshake()
 		if err != nil {
 			t.Errorf("First handshake initiation failed: %v", err)
@@ -142,7 +141,6 @@ func TestInitiateHandshake(t *testing.T) {
 			totalSuccess += success
 		}
 
-		// Should have at least one success (the first one)
 		if totalSuccess < 1 {
 			t.Error("Expected at least one successful handshake initiation")
 		}
@@ -168,13 +166,12 @@ func TestInitiateHandshake(t *testing.T) {
 func createTestMiniWG(t *testing.T) *MiniWG {
 	wg := &MiniWG{}
 
-	// Generate test keys
-	privateKey, publicKey, err := generateKeypair()
+	privateKey, publicKey, err := GenerateKeypair()
 	if err != nil {
 		t.Fatalf("Failed to generate keypair: %v", err)
 	}
 
-	peerPriv, peerPub, err := generateKeypair()
+	peerPriv, peerPub, err := GenerateKeypair()
 	if err != nil {
 		t.Fatalf("Failed to generate peer keypair: %v", err)
 	}
@@ -184,7 +181,6 @@ func createTestMiniWG(t *testing.T) *MiniWG {
 	wg.peerKey = peerPub
 	wg.localIndex = 0x12345678
 
-	// Create a dummy UDP connection for testing
 	// This will be used for sending handshake messages
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0") // Port 0 = any available port
 	if err != nil {
@@ -291,4 +287,3 @@ func TestQueuePacket(t *testing.T) {
 		}
 	})
 }
-

@@ -12,7 +12,7 @@
 .PHONY: all build test clean run fmt vet security gosec vulncheck help
 
 # Default target
-all: build
+all: help
 
 # Build the miniwg binary
 build:
@@ -22,12 +22,12 @@ build:
 # Run all tests with verbose output
 test:
 	@echo "Running tests..."
-	go test -v .
+	go test -v ./device ./config ./conn ./tun
 
 # Run tests with coverage
 test-coverage:
 	@echo "Running tests with coverage..."
-	go test -v -cover .
+	go test -v -cover ./device ./config ./conn ./tun
 
 # Clean build artifacts
 clean:
@@ -43,12 +43,12 @@ run: build
 # Format Go code
 fmt:
 	@echo "Formatting code..."
-	go fmt .
+	go fmt ./device ./config ./conn ./tun .
 
 # Run go vet for static analysis
 vet:
 	@echo "Running go vet..."
-	go vet .
+	go vet ./device ./config ./conn ./tun .
 
 # Security scanning targets
 

@@ -1,4 +1,4 @@
-package main
+package device
 
 import (
 	"crypto/rand"
@@ -24,12 +24,12 @@ func generateRandomIndex(t *testing.T) uint32 {
 
 // TestHandshakeInitiation tests the creation of handshake initiation messages
 func TestHandshakeInitiation(t *testing.T) {
-	ourPrivKey, ourPubKey, err := generateKeypair()
+	ourPrivKey, ourPubKey, err := GenerateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate our keypair: %v", err)
 	}
 
-	_, peerPubKey, err := generateKeypair()
+	_, peerPubKey, err := GenerateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate peer keypair: %v", err)
 	}
@@ -65,12 +65,12 @@ func TestHandshakeInitiation(t *testing.T) {
 
 // TestFullHandshake tests the complete 4-part handshake process
 func TestFullHandshake(t *testing.T) {
-	initiatorPrivKey, initiatorPubKey, err := generateKeypair()
+	initiatorPrivKey, initiatorPubKey, err := GenerateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate initiator keypair: %v", err)
 	}
 
-	responderPrivKey, responderPubKey, err := generateKeypair()
+	responderPrivKey, responderPubKey, err := GenerateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate responder keypair: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestFullHandshake(t *testing.T) {
 
 // TestHandshakeMACs tests MAC1 and MAC2 calculation
 func TestHandshakeMACs(t *testing.T) {
-	_, ourPubKey, err := generateKeypair()
+	_, ourPubKey, err := GenerateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate keypair: %v", err)
 	}
@@ -228,12 +228,12 @@ func TestHandshakeMACs(t *testing.T) {
 
 // TestHandshakeValidation tests various validation scenarios
 func TestHandshakeValidation(t *testing.T) {
-	ourPrivKey, ourPubKey, err := generateKeypair()
+	ourPrivKey, ourPubKey, err := GenerateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate our keypair: %v", err)
 	}
 
-	_, peerPubKey, err := generateKeypair()
+	_, peerPubKey, err := GenerateKeypair()
 	if err != nil {
 		t.Fatalf("failed to generate peer keypair: %v", err)
 	}

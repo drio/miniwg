@@ -10,7 +10,7 @@
 // Traffic format:
 // [Type:1][Reserved:3][Receiver:4][Counter:8][EncryptedPayload + AuthTag:variable]
 
-package main
+package device
 
 import (
 	"fmt"
@@ -24,16 +24,12 @@ func (wg *MiniWG) encryptPacket(plaintext []byte) ([]byte, error) {
 		return nil, fmt.Errorf("no active session - handshake required")
 	}
 
-	// Encrypt plaintext with ChaCha20-Poly1305
 	// No associated data - authentication covers only the encrypted payload
-	// Use sendNonce counter to ensure unique nonces for each packet
 	ciphertext, err := chachaPolyEncrypt(wg.sendKey, wg.sendNonce, plaintext, nil)
 	if err != nil {
 		return nil, fmt.Errorf("encryption failed: %v", err)
 	}
 
-	// Create transport message with header + encrypted payload
-	// Use peer's index as receiver (they will decrypt with their localIndex)
 	transportMsg := MarshalTransportData(wg.peerIndex, wg.sendNonce, ciphertext)
 
 	// Increment nonce counter after successful encryption
@@ -72,7 +68,6 @@ func (wg *MiniWG) decryptPacket(transportData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("decryption failed: %v", err)
 	}
 
-	// Update counter after successful decryption
 	wg.recvCounter = counter
 
 	return plaintext, nil

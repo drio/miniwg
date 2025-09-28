@@ -10,7 +10,7 @@
 // - TAI64N timestamp generation and validation
 // - Utility functions for cryptographic operations
 
-package main
+package device
 
 import (
 	"crypto/rand"
@@ -23,8 +23,8 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-// generateKeypair creates a new Curve25519 keypair
-func generateKeypair() ([32]byte, [32]byte, error) {
+// GenerateKeypair creates a new Curve25519 keypair
+func GenerateKeypair() ([32]byte, [32]byte, error) {
 	var privateKey, publicKey [32]byte
 
 	// Generate 32 random bytes for private key
@@ -32,7 +32,7 @@ func generateKeypair() ([32]byte, [32]byte, error) {
 		return privateKey, publicKey, err
 	}
 
-	// Derive public key from private key
+	// Derive public key from private key using Curve25519
 	curve25519.ScalarBaseMult(&publicKey, &privateKey)
 
 	return privateKey, publicKey, nil
@@ -60,7 +60,6 @@ func blake2sHash(input []byte) [32]byte {
 func blake2sMac(key []byte, input []byte) ([16]byte, error) {
 	var result [16]byte
 
-	// Create keyed BLAKE2s with 16-byte output
 	h, err := blake2s.New128(key)
 	if err != nil {
 		return result, err
@@ -73,7 +72,6 @@ func blake2sMac(key []byte, input []byte) ([16]byte, error) {
 
 // blake2sHmac computes HMAC using BLAKE2s (32 bytes output)
 // HMAC provides message authentication - ensures data integrity and authenticity
-// My view of HMAC as a newbie cryptographer:
 // When we use HMAC we are basically passing our messages + a key to generate
 // the output? So anyone with the key can confirm that the message comes
 // from us and hasn't been modified.
@@ -81,7 +79,6 @@ func blake2sMac(key []byte, input []byte) ([16]byte, error) {
 func blake2sHmac(key []byte, input []byte) ([32]byte, error) {
 	var result [32]byte
 
-	// Create keyed BLAKE2s with 32-byte output
 	h, err := blake2s.New256(key)
 	if err != nil {
 		return result, err
@@ -93,7 +90,6 @@ func blake2sHmac(key []byte, input []byte) ([32]byte, error) {
 }
 
 // kdf1 derives one key using HKDF
-// My view of HKDF as a newbie cryptographer:
 // HKDF is like a "key stretcher" - you give it some key material and it
 // generates new, independent keys from it. It's the secure way to turn one
 // secret into multiple secrets for different purposes.
@@ -195,14 +191,12 @@ func kdf3(key []byte, input []byte) ([32]byte, [32]byte, [32]byte, error) {
 }
 
 // chachaPolyEncrypt encrypts using ChaCha20Poly1305 AEAD
-// My view of AEAD as a newbie cryptographer:
 // AEAD = "Authenticated Encryption with Associated Data". It's like a magical
 // box that encrypts your data AND proves it hasn't been tampered with. You
 // put in plaintext + a key + a nonce, and get back ciphertext that only
 // someone with the key can decrypt AND verify as authentic.
 // The "associated data" is extra info that gets authenticated but not encrypted.
 func chachaPolyEncrypt(key [32]byte, nonce uint64, plaintext []byte, additionalData []byte) ([]byte, error) {
-	// Create ChaCha20Poly1305 cipher
 	cipher, err := chacha20poly1305.New(key[:])
 	if err != nil {
 		return nil, err
@@ -223,7 +217,6 @@ func chachaPolyEncrypt(key [32]byte, nonce uint64, plaintext []byte, additionalD
 // This verifies authenticity AND decrypts - if someone tampered with the
 // ciphertext, this will fail with an error instead of returning garbage.
 func chachaPolyDecrypt(key [32]byte, nonce uint64, ciphertext []byte, additionalData []byte) ([]byte, error) {
-	// Create ChaCha20Poly1305 cipher
 	cipher, err := chacha20poly1305.New(key[:])
 	if err != nil {
 		return nil, err
@@ -243,7 +236,6 @@ func chachaPolyDecrypt(key [32]byte, nonce uint64, ciphertext []byte, additional
 }
 
 // generateTimestamp creates TAI64N timestamp
-// My view of TAI64N as a newbie cryptographer:
 // TAI64N is just a fancy way to write "time" that prevents replay attacks.
 // It's 12 bytes: first 8 bytes = seconds since 1970, last 4 bytes = nanoseconds.
 // The key property: it must ALWAYS increase. If we see a timestamp that's
@@ -251,7 +243,6 @@ func chachaPolyDecrypt(key [32]byte, nonce uint64, ciphertext []byte, additional
 func generateTimestamp() ([12]byte, error) {
 	var timestamp [12]byte
 
-	// Get current time
 	now := time.Now()
 
 	// TAI64N format:
