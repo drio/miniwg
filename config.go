@@ -2,11 +2,12 @@ package main
 
 import (
 	"bufio"
-	"encoding/hex"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -47,16 +48,22 @@ func (wg *MiniWG) loadConfig(configFile string) error {
 
 		switch key {
 		case "PrivateKey":
-			privateKeyBytes, err := hex.DecodeString(value)
+			privateKeyBytes, err := base64.StdEncoding.DecodeString(value)
 			if err != nil {
 				return fmt.Errorf("failed to decode private key: %v", err)
 			}
+			if len(privateKeyBytes) != 32 {
+				return fmt.Errorf("private key must be 32 bytes")
+			}
 			copy(wg.privateKey[:], privateKeyBytes)
 
-		case "PeerPublicKey":
-			peerKeyBytes, err := hex.DecodeString(value)
+		case "PeerKey":
+			peerKeyBytes, err := base64.StdEncoding.DecodeString(value)
 			if err != nil {
 				return fmt.Errorf("failed to decode peer key: %v", err)
+			}
+			if len(peerKeyBytes) != 32 {
+				return fmt.Errorf("peer key must be 32 bytes")
 			}
 			copy(wg.peerKey[:], peerKeyBytes)
 
@@ -84,6 +91,32 @@ func (wg *MiniWG) loadConfig(configFile string) error {
 
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("error reading config file: %v", err)
+	}
+
+	// Validate required configuration values
+	var missing []string
+
+	if wg.privateKey == [32]byte{} {
+		missing = append(missing, "PrivateKey")
+	}
+	if wg.peerKey == [32]byte{} {
+		missing = append(missing, "PeerKey")
+	}
+	if wg.listenPort == 0 {
+		missing = append(missing, "ListenPort")
+	}
+	if wg.peerAddr == nil {
+		missing = append(missing, "PeerEndpoint")
+	}
+	if wg.tunName == "" {
+		missing = append(missing, "TunName")
+	}
+	if wg.tunAddress == "" {
+		missing = append(missing, "TunAddress")
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required configuration values: %v", missing)
 	}
 
 	curve25519.ScalarBaseMult(&wg.publicKey, &wg.privateKey)
@@ -128,7 +161,28 @@ func (wg *MiniWG) setupTUN() error {
 	}
 
 	wg.tun = iface
-	log.Printf("TUN interface %s created", wg.tunName)
-	log.Printf("Configure with: ip addr add %s dev %s && ip link set %s up", wg.tunAddress, wg.tunName, wg.tunName)
+	log.Printf("TUN interface %s created", iface.Name())
+
+	// Automatically configure IP address (like wg-quick does)
+	if wg.tunAddress != "" {
+		log.Printf("Configuring IP address %s on %s", wg.tunAddress, iface.Name())
+
+		// Add IP address: ip addr add 192.168.241.1/24 dev wg0
+		cmd := exec.Command("ip", "addr", "add", wg.tunAddress, "dev", iface.Name())
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to add IP address %s to %s: %v", wg.tunAddress, iface.Name(), err)
+		}
+
+		// Bring interface up: ip link set wg0 up
+		cmd = exec.Command("ip", "link", "set", iface.Name(), "up")
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to bring up interface %s: %v", iface.Name(), err)
+		}
+
+		log.Printf("Interface %s configured with %s and brought up", iface.Name(), wg.tunAddress)
+	} else {
+		log.Printf("No TUN address specified - interface created but not configured")
+	}
+
 	return nil
 }

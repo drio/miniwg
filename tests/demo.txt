@@ -1,0 +1,23 @@
+MiniWG Demo
+
+Shows encrypted vs unencrypted traffic.
+
+Setup:
+make tmux
+
+
+# Raven
+make firewall-open
+make peer1
+make client
+
+# Fwork
+make firewall-open
+make peer2
+make server
+make capture-plain
+# send data in the nc session...
+make capture-encrypted
+# send data in the nc session ...
+
+
