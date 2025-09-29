@@ -1,6 +1,7 @@
 package device
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -109,13 +110,18 @@ func (wg *MiniWG) Done() <-chan struct{} {
 // educational purposes but lacks the robustness needed for production use.
 func (wg *MiniWG) Close() error {
 	close(wg.done)
+	var closeErr error
 	if wg.tun != nil {
-		wg.tun.Close()
+		if err := wg.tun.Close(); err != nil {
+			closeErr = err // Store first error but continue cleanup
+		}
 	}
 	if wg.udp != nil {
-		wg.udp.Close()
+		if err := wg.udp.Close(); err != nil && closeErr == nil {
+			closeErr = err // Store error only if no previous error
+		}
 	}
-	return nil
+	return closeErr
 }
 
 // queuePacket adds a packet to the queue while waiting for handshake completion
@@ -133,7 +139,11 @@ func (wg *MiniWG) sendQueuedPackets() {
 	}
 
 	for _, packet := range wg.queuedPackets {
-		wg.handleTunnelTraffic(packet)
+		if err := wg.handleTunnelTraffic(packet); err != nil {
+			// Log error but continue processing other queued packets
+			// In production, might want more sophisticated error handling
+			fmt.Printf("Failed to send queued packet: %v\n", err)
+		}
 	}
 
 	wg.queuedPackets = nil
