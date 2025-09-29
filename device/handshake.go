@@ -40,9 +40,9 @@ type HandshakeInitiationState struct {
 	tempKey2 [32]byte
 }
 
-// createHandshakeInitiation (Part 1/4) creates the first message of the Noise_IK handshake
+// CreateMessageInitiation (Part 1/4) creates the first message of the Noise_IK handshake
 // Following the exact steps from WireGuard protocol specification
-func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]byte, senderIndex uint32) (*HandshakeInitiation, *HandshakeInitiationState, error) {
+func CreateMessageInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]byte, senderIndex uint32) (*HandshakeInitiation, *HandshakeInitiationState, error) {
 
 	state := &HandshakeInitiationState{
 		ourStaticPrivate: ourStaticPriv,
@@ -51,22 +51,13 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 		senderIndex:      senderIndex,
 	}
 
-	// Step 1: Initialize chaining key
-	// initiator.chaining_key = HASH(CONSTRUCTION)
-	construction := []byte(CONSTRUCTION)
-	state.chainingKey = blake2sHash(construction)
+	// Step 1: Initialize with precomputed constants (like WireGuard-Go)
+	state.chainingKey = InitialChainKey
+	state.hash = InitialHash
 
-	// Step 2: Initialize hash
-	// initiator.hash = HASH(HASH(initiator.chaining_key || IDENTIFIER) || responder.static_public)
-	identifier := []byte(IDENTIFIER)
-
-	// First: HASH(chaining_key || IDENTIFIER)
-	temp := append(state.chainingKey[:], identifier...)
-	tempHash := blake2sHash(temp)
-
-	// Second: HASH(temp_hash || responder.static_public)
-	temp2 := append(tempHash[:], peerStaticPub[:]...)
-	state.hash = blake2sHash(temp2)
+	// Step 2: Mix responder's static public key into hash
+	// hash = HASH(InitialHash || responder.static_public)
+	mixHash(&state.hash, &state.hash, peerStaticPub[:])
 
 	// Step 3: Generate ephemeral keypair
 	// initiator.ephemeral_private = DH_GENERATE()
@@ -78,9 +69,8 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 	state.ephemeralPublic = ephemeralPub
 
 	// Step 4: Mix ephemeral public key into hash
-	// initiator.hash = HASH(initiator.hash || msg.unencrypted_ephemeral)
-	temp3 := append(state.hash[:], state.ephemeralPublic[:]...)
-	state.hash = blake2sHash(temp3)
+	// hash = HASH(hash || ephemeral)
+	mixHash(&state.hash, &state.hash, state.ephemeralPublic[:])
 
 	// Step 5: Mix ephemeral public key into chaining key using KDF1
 	// temp = HMAC(initiator.chaining_key, msg.unencrypted_ephemeral)
@@ -120,9 +110,8 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 	copy(state.encryptedStatic[:], encryptedStatic)
 
 	// Step 8: Mix encrypted static into hash
-	// initiator.hash = HASH(initiator.hash || msg.encrypted_static)
-	temp4 := append(state.hash[:], state.encryptedStatic[:]...)
-	state.hash = blake2sHash(temp4)
+	// hash = HASH(hash || encrypted_static)
+	mixHash(&state.hash, &state.hash, state.encryptedStatic[:])
 
 	// Step 9: Perform DH with our static private and peer static public
 	// Then derive encryption key for timestamp encryption
@@ -157,9 +146,8 @@ func createHandshakeInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]by
 	copy(state.encryptedTimestamp[:], encryptedTimestamp)
 
 	// Step 11: Final hash update
-	// initiator.hash = HASH(initiator.hash || msg.encrypted_timestamp)
-	temp5 := append(state.hash[:], state.encryptedTimestamp[:]...)
-	state.hash = blake2sHash(temp5)
+	// hash = HASH(hash || encrypted_timestamp)
+	mixHash(&state.hash, &state.hash, state.encryptedTimestamp[:])
 
 	// Step 12: Create the message structure
 	msg := &HandshakeInitiation{
@@ -277,10 +265,10 @@ type HandshakeResponderState struct {
 	timestampValid bool
 }
 
-// processHandshakeInitiation (Part 2/4) processes the first handshake message (responder side)
-// This implements the reverse of createHandshakeInitiation - it takes the received
+// ConsumeMessageInitiation (Part 2/4) processes the first handshake message (responder side)
+// This implements the reverse of CreateMessageInitiation - it takes the received
 // message bytes and performs all the same cryptographic operations to sync state
-func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub [32]byte, lastTimestamp [12]byte) (*HandshakeResponderState, error) {
+func ConsumeMessageInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub [32]byte, lastTimestamp [12]byte) (*HandshakeResponderState, error) {
 
 	state := &HandshakeResponderState{
 		ourStaticPrivate: ourStaticPriv,
@@ -321,22 +309,20 @@ func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub
 		return nil, fmt.Errorf("invalid MAC2 - expected zeros for minimal implementation")
 	}
 
-	// Step 4: Sync cryptographic ledger - perform same operations as initiator
-	construction := []byte(CONSTRUCTION)
-	state.chainingKey = blake2sHash(construction)
+	// Step 4: Initialize with precomputed constants (like WireGuard-Go)
+	state.chainingKey = InitialChainKey
 
-	// Step 5: Initialize hash (sync with initiator)
-	identifier := []byte(IDENTIFIER)
-	temp := append(state.chainingKey[:], identifier...)
-	tempHash := blake2sHash(temp)
-	temp2 := append(tempHash[:], state.ourStaticPublic[:]...)
-	state.hash = blake2sHash(temp2)
+	// Step 5: Initialize hash with our (responder's) static public key
+	// This matches WireGuard-Go's ConsumeMessageInitiation line 260
+	// hash = HASH(InitialHash || responder.static_public)
+	mixHash(&state.hash, &InitialHash, state.ourStaticPublic[:])
 
-	// Step 6: Mix received ephemeral public key into hash (sync with initiator)
-	temp3 := append(state.hash[:], state.initiatorEphemeralPublic[:]...)
-	state.hash = blake2sHash(temp3)
+	// Step 6: Mix received ephemeral public key into hash
+	// hash = HASH(hash || ephemeral) - matches WireGuard-Go line 261
+	mixHash(&state.hash, &state.hash, state.initiatorEphemeralPublic[:])
 
-	// Step 7: Mix ephemeral public key into chaining key using KDF1 (sync with initiator)
+	// Step 7: Mix ephemeral public key into chaining key using KDF1
+	// This matches WireGuard-Go's mixKey operation line 262
 	newChainingKey, err := kdf1(state.chainingKey[:], state.initiatorEphemeralPublic[:])
 	if err != nil {
 		return nil, fmt.Errorf("kdf1 failed: %v", err)
@@ -365,9 +351,9 @@ func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub
 	}
 	copy(state.initiatorStaticPublic[:], decryptedStatic)
 
-	// Step 10: Mix encrypted static into hash (sync with initiator)
-	temp4 := append(state.hash[:], msg.Static[:]...)
-	state.hash = blake2sHash(temp4)
+	// Step 10: Mix encrypted static into hash
+	// hash = HASH(hash || encrypted_static)
+	mixHash(&state.hash, &state.hash, msg.Static[:])
 
 	// Step 11: Perform DH and derive key for timestamp decryption
 	dhResult2, err := dhOperation(state.ourStaticPrivate, state.initiatorStaticPublic)
@@ -397,17 +383,17 @@ func processHandshakeInitiation(messageBytes []byte, ourStaticPriv, ourStaticPub
 		return nil, fmt.Errorf("invalid timestamp - potential replay attack")
 	}
 
-	// Step 13: Final hash update (sync with initiator)
-	temp5 := append(state.hash[:], msg.Timestamp[:]...)
-	state.hash = blake2sHash(temp5)
+	// Step 13: Final hash update
+	// hash = HASH(hash || encrypted_timestamp)
+	mixHash(&state.hash, &state.hash, msg.Timestamp[:])
 
 	return state, nil
 }
 
-// createHandshakeResponse (Part 3/4) creates the second message of the Noise_IK handshake (responder side)
+// CreateMessageResponse (Part 3/4) creates the second message of the Noise_IK handshake (responder side)
 // Takes the synchronized responder state and completes the handshake by performing final DH operations
 // and deriving the transport keys that both sides will use for data encryption
-func createHandshakeResponse(responderState *HandshakeResponderState, responderIndex uint32) (*HandshakeResponse, *HandshakeResponderState, error) {
+func CreateMessageResponse(responderState *HandshakeResponderState, responderIndex uint32) (*HandshakeResponse, *HandshakeResponderState, error) {
 
 	// Step 1: Generate ephemeral keypair for responder
 	// This ephemeral key will be used for the final DH operations to derive transport keys
@@ -417,9 +403,8 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 	}
 
 	// Step 2: Mix responder's ephemeral public key into hash
-	// This continues the cryptographic transcript of the handshake
-	temp := append(responderState.hash[:], responderEphPub[:]...)
-	responderState.hash = blake2sHash(temp)
+	// hash = HASH(hash || responder_ephemeral)
+	mixHash(&responderState.hash, &responderState.hash, responderEphPub[:])
 
 	// Step 3: Mix responder's ephemeral public key into chaining key using KDF1
 	// This advances the key derivation chain with responder's ephemeral contribution
@@ -469,8 +454,8 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 	responderState.chainingKey = newChainingKey4
 
 	// Mix temp2 into hash to update the cryptographic transcript
-	temp3 := append(responderState.hash[:], temp2[:]...)
-	responderState.hash = blake2sHash(temp3)
+	// hash = HASH(hash || tau)
+	mixHash(&responderState.hash, &responderState.hash, temp2[:])
 
 	// Step 7: Encrypt empty payload
 	// This proves the responder can perform encryption and confirms key derivation
@@ -486,9 +471,8 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 	copy(encryptedEmptyArray[:], encryptedEmpty)
 
 	// Step 8: Final hash update
-	// Complete the cryptographic transcript with the encrypted empty payload
-	temp4 := append(responderState.hash[:], encryptedEmpty...)
-	responderState.hash = blake2sHash(temp4)
+	// hash = HASH(hash || encrypted_empty)
+	mixHash(&responderState.hash, &responderState.hash, encryptedEmpty)
 
 	// Step 9: Create the handshake response message
 	// This message contains the responder's ephemeral public key and encrypted confirmation
@@ -524,10 +508,10 @@ func createHandshakeResponse(responderState *HandshakeResponderState, responderI
 	return response, responderState, nil
 }
 
-// processHandshakeResponse (Part 4/4) processes the second handshake message (initiator side)
+// ConsumeMessageResponse (Part 4/4) processes the second handshake message (initiator side)
 // This completes the handshake by performing the same DH operations as the responder
 // and derives the final transport keys that both sides will use for data encryption
-func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeInitiationState) (*HandshakeInitiationState, error) {
+func ConsumeMessageResponse(responseBytes []byte, initiatorState *HandshakeInitiationState) (*HandshakeInitiationState, error) {
 
 	// Step 1: Unmarshal the received response message
 	var response HandshakeResponse
@@ -565,9 +549,9 @@ func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeIni
 		return nil, fmt.Errorf("invalid MAC2 - expected zeros for minimal implementation")
 	}
 
-	// Step 4: Sync cryptographic operations with responder - mix responder's ephemeral
-	temp := append(initiatorState.hash[:], response.Ephemeral[:]...)
-	initiatorState.hash = blake2sHash(temp)
+	// Step 4: Sync cryptographic operations with responder
+	// hash = HASH(hash || responder_ephemeral)
+	mixHash(&initiatorState.hash, &initiatorState.hash, response.Ephemeral[:])
 
 	// Step 5: Mix responder's ephemeral public key into chaining key using KDF1
 	newChainingKey1, err := kdf1(initiatorState.chainingKey[:], response.Ephemeral[:])
@@ -612,8 +596,8 @@ func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeIni
 	initiatorState.chainingKey = newChainingKey4
 
 	// Mix temp2 into hash (sync with responder)
-	temp3 := append(initiatorState.hash[:], temp2[:]...)
-	initiatorState.hash = blake2sHash(temp3)
+	// hash = HASH(hash || tau)
+	mixHash(&initiatorState.hash, &initiatorState.hash, temp2[:])
 
 	// Step 9: Decrypt and verify empty payload
 	decryptedEmpty, err := chachaPolyDecrypt(decryptKey, 0, response.Empty[:], initiatorState.hash[:])
@@ -629,8 +613,8 @@ func processHandshakeResponse(responseBytes []byte, initiatorState *HandshakeIni
 	}
 
 	// Step 10: Final hash update (sync with responder)
-	temp4 := append(initiatorState.hash[:], response.Empty[:]...)
-	initiatorState.hash = blake2sHash(temp4)
+	// hash = HASH(hash || encrypted_empty)
+	mixHash(&initiatorState.hash, &initiatorState.hash, response.Empty[:])
 
 	return initiatorState, nil
 }

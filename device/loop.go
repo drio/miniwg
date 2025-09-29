@@ -212,7 +212,7 @@ func (wg *MiniWG) handleHandshakeEvent(event HandshakeEvent) {
 
 		// Step 1: Process the initiation message
 		var lastTimestamp [12]byte // TODO: Use actual last timestamp for replay protection
-		responderState, err := processHandshakeInitiation(
+		responderState, err := ConsumeMessageInitiation(
 			event.Data,
 			wg.privateKey,
 			wg.publicKey,
@@ -227,7 +227,7 @@ func (wg *MiniWG) handleHandshakeEvent(event HandshakeEvent) {
 		wg.responderState = responderState
 
 		// Step 3: Create handshake response
-		responseMsg, finalState, err := createHandshakeResponse(responderState, wg.localIndex)
+		responseMsg, finalState, err := CreateMessageResponse(responderState, wg.localIndex)
 		if err != nil {
 			log.Printf("Failed to create handshake response: %v", err)
 			return
@@ -277,7 +277,7 @@ func (wg *MiniWG) handleHandshakeEvent(event HandshakeEvent) {
 		}
 
 		// Step 2: Process the response message
-		finalState, err := processHandshakeResponse(event.Data, wg.initiatorState)
+		finalState, err := ConsumeMessageResponse(event.Data, wg.initiatorState)
 		if err != nil {
 			log.Printf("Failed to process handshake response: %v", err)
 			return
@@ -351,7 +351,7 @@ func (wg *MiniWG) initiateHandshake() error {
 	wg.isHandshaking = true
 
 	wg.mutex.Unlock()
-	initiationMsg, initiatorState, err := createHandshakeInitiation(
+	initiationMsg, initiatorState, err := CreateMessageInitiation(
 		wg.privateKey,
 		wg.publicKey,
 		wg.peerKey,

@@ -237,6 +237,32 @@ func chachaPolyDecrypt(key [32]byte, nonce uint64, ciphertext []byte, additional
 	return plaintext, nil
 }
 
+// Precomputed constants for WireGuard Noise protocol initialization
+// These match the WireGuard-Go implementation exactly
+var (
+	InitialChainKey [32]byte
+	InitialHash     [32]byte
+)
+
+// initializeNoiseConstants precomputes the initial protocol constants
+// This matches WireGuard-Go's init() function in noise-protocol.go
+func init() {
+	// InitialChainKey = HASH(NoiseConstruction)
+	construction := []byte("Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s")
+	InitialChainKey = blake2sHash(construction)
+
+	// InitialHash = HASH(InitialChainKey || WGIdentifier)
+	identifier := []byte("WireGuard v1 zx2c4 Jason@zx2c4.com")
+	mixHash(&InitialHash, &InitialChainKey, identifier)
+}
+
+// mixHash performs the standard Noise protocol hash mixing operation
+// hash = HASH(hash || data)
+func mixHash(dst, h *[32]byte, data []byte) {
+	temp := append(h[:], data...)
+	*dst = blake2sHash(temp)
+}
+
 // generateTimestamp creates TAI64N timestamp
 // TAI64N is just a fancy way to write "time" that prevents replay attacks.
 // It's 12 bytes: first 8 bytes = seconds since 1970, last 4 bytes = nanoseconds.

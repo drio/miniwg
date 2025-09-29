@@ -36,7 +36,7 @@ func TestHandshakeInitiation(t *testing.T) {
 
 	senderIndex := generateRandomIndex(t)
 
-	msg, state, err := createHandshakeInitiation(ourPrivKey, ourPubKey, peerPubKey, senderIndex)
+	msg, state, err := CreateMessageInitiation(ourPrivKey, ourPubKey, peerPubKey, senderIndex)
 	if err != nil {
 		t.Fatalf("handshake initiation failed: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestFullHandshake(t *testing.T) {
 	responderIndex := generateRandomIndex(t)
 
 	t.Run("Part 1: Create handshake initiation", func(t *testing.T) {
-		msg, initiatorState, err := createHandshakeInitiation(initiatorPrivKey, initiatorPubKey, responderPubKey, senderIndex)
+		msg, initiatorState, err := CreateMessageInitiation(initiatorPrivKey, initiatorPubKey, responderPubKey, senderIndex)
 		if err != nil {
 			t.Fatalf("handshake initiation creation failed: %v", err)
 		}
@@ -91,7 +91,7 @@ func TestFullHandshake(t *testing.T) {
 
 		t.Run("Part 2: Process handshake initiation", func(t *testing.T) {
 			var zeroTimestamp [12]byte // For first handshake, no previous timestamp
-			responderState, err := processHandshakeInitiation(msgBytes, responderPrivKey, responderPubKey, zeroTimestamp)
+			responderState, err := ConsumeMessageInitiation(msgBytes, responderPrivKey, responderPubKey, zeroTimestamp)
 			if err != nil {
 				t.Fatalf("handshake initiation processing failed: %v", err)
 			}
@@ -109,7 +109,7 @@ func TestFullHandshake(t *testing.T) {
 			}
 
 			t.Run("Part 3: Create handshake response", func(t *testing.T) {
-				responseMsg, finalResponderState, err := createHandshakeResponse(responderState, responderIndex)
+				responseMsg, finalResponderState, err := CreateMessageResponse(responderState, responderIndex)
 				if err != nil {
 					t.Fatalf("handshake response creation failed: %v", err)
 				}
@@ -132,7 +132,7 @@ func TestFullHandshake(t *testing.T) {
 				}
 
 				t.Run("Part 4: Process handshake response", func(t *testing.T) {
-					finalInitiatorState, err := processHandshakeResponse(responseMsgBytes, initiatorState)
+					finalInitiatorState, err := ConsumeMessageResponse(responseMsgBytes, initiatorState)
 					if err != nil {
 						t.Fatalf("handshake response processing failed: %v", err)
 					}
@@ -238,7 +238,7 @@ func TestHandshakeValidation(t *testing.T) {
 		t.Fatalf("failed to generate peer keypair: %v", err)
 	}
 
-	msg, _, err := createHandshakeInitiation(ourPrivKey, ourPubKey, peerPubKey, 12345)
+	msg, _, err := CreateMessageInitiation(ourPrivKey, ourPubKey, peerPubKey, 12345)
 	if err != nil {
 		t.Fatalf("failed to create handshake initiation: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestHandshakeValidation(t *testing.T) {
 	t.Run("Invalid message length", func(t *testing.T) {
 		shortMsg := msgBytes[:100]
 		var zeroTimestamp [12]byte
-		_, err := processHandshakeInitiation(shortMsg, ourPrivKey, ourPubKey, zeroTimestamp)
+		_, err := ConsumeMessageInitiation(shortMsg, ourPrivKey, ourPubKey, zeroTimestamp)
 		if err == nil {
 			t.Error("should reject message with invalid length")
 		}
@@ -266,7 +266,7 @@ func TestHandshakeValidation(t *testing.T) {
 		}
 
 		var zeroTimestamp [12]byte
-		_, err = processHandshakeInitiation(invalidMsg, ourPrivKey, ourPubKey, zeroTimestamp)
+		_, err = ConsumeMessageInitiation(invalidMsg, ourPrivKey, ourPubKey, zeroTimestamp)
 		if err == nil {
 			t.Error("should reject message with invalid type")
 		}
@@ -281,7 +281,7 @@ func TestHandshakeValidation(t *testing.T) {
 		}
 
 		var zeroTimestamp [12]byte
-		_, err := processHandshakeInitiation(invalidMsg, ourPrivKey, ourPubKey, zeroTimestamp)
+		_, err := ConsumeMessageInitiation(invalidMsg, ourPrivKey, ourPubKey, zeroTimestamp)
 		if err == nil {
 			t.Error("should reject message with invalid MAC1")
 		}
