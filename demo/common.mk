@@ -8,7 +8,3 @@ BINARY = ../miniwg
 # Common targets
 all:
 	@cat Makefile
-
-clean:
-	rm -f $(BINARY)
-	rm -f *.log

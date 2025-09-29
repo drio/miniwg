@@ -13,9 +13,11 @@
 package device
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"hash"
 	"time"
 
 	"golang.org/x/crypto/blake2s"
@@ -72,20 +74,20 @@ func blake2sMac(key []byte, input []byte) ([16]byte, error) {
 
 // blake2sHmac computes HMAC using BLAKE2s (32 bytes output)
 // HMAC provides message authentication - ensures data integrity and authenticity
-// When we use HMAC we are basically passing our messages + a key to generate
-// the output? So anyone with the key can confirm that the message comes
-// from us and hasn't been modified.
-// Used in HKDF key derivation and chaining key computations in Noise protocol
+// Uses proper HMAC construction with BLAKE2s as the hash function, matching WireGuard-Go
+// This is different from BLAKE2s keyed hash - HMAC has specific construction:
+// HMAC(K,m) = H((K ⊕ opad) ∥ H((K ⊕ ipad) ∥ m))
 func blake2sHmac(key []byte, input []byte) ([32]byte, error) {
 	var result [32]byte
 
-	h, err := blake2s.New256(key)
-	if err != nil {
-		return result, err
-	}
+	// Create HMAC with BLAKE2s as the hash function (like WireGuard-Go)
+	mac := hmac.New(func() hash.Hash {
+		h, _ := blake2s.New256(nil)
+		return h
+	}, key)
 
-	h.Write(input)
-	copy(result[:], h.Sum(nil))
+	mac.Write(input)
+	copy(result[:], mac.Sum(nil))
 	return result, nil
 }
 

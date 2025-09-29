@@ -13,7 +13,7 @@ real-wg-up:
 
 # Stop real WireGuard only
 real-wg-down:
-	-sudo $(WGQ) down real-wg 2>/dev/null || true
+	-sudo $(WGQ) down $(PWD)/realwg/real-wg.conf 2>/dev/null || true
 
 # Show WireGuard status
 wg-status:
