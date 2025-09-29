@@ -17,3 +17,5 @@ miniwg
 bin
 .claude
 coverage.out
+demo/mini/peer1.log
+demo/mini/peer2.log
