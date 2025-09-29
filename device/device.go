@@ -75,13 +75,31 @@ func NewMiniWG(tunDev tun.TUNDevice, udpConn conn.UDPConn, config MiniWGConfig) 
 
 		// Initialize timer but keep it stopped until session is established
 		rekeyTimer: time.NewTimer(REKEY_AFTER_TIME),
-		done: make(chan struct{}),
+		done:       make(chan struct{}),
 	}
 
 	// Stop timer initially - will be started when handshake completes
 	wg.rekeyTimer.Stop()
 
 	return wg
+}
+
+// Public accessors for testing - these expose internal state needed by integration tests
+// In production WireGuard, these would not be exposed as they break encapsulation
+
+// TUN returns the TUN device interface for testing
+func (wg *MiniWG) TUN() tun.TUNDevice {
+	return wg.tun
+}
+
+// UDP returns the UDP connection interface for testing
+func (wg *MiniWG) UDP() conn.UDPConn {
+	return wg.udp
+}
+
+// Done returns the done channel for testing shutdown coordination
+func (wg *MiniWG) Done() <-chan struct{} {
+	return wg.done
 }
 
 // Close shuts down the MiniWG instance

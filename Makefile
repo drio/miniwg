@@ -21,13 +21,16 @@ build:
 
 # Run all tests with verbose output
 test:
-	@echo "Running tests..."
+	@echo "Running unit tests..."
 	go test -v ./device ./config ./conn ./tun
+	@echo "Running integration tests..."
+	go test -v ./test
 
 # Run tests with coverage
 test-coverage:
 	@echo "Running tests with coverage..."
 	go test -v -cover ./device ./config ./conn ./tun
+	go test -v -cover ./test
 
 # Clean build artifacts
 clean:
@@ -43,12 +46,12 @@ run: build
 # Format Go code
 fmt:
 	@echo "Formatting code..."
-	go fmt ./device ./config ./conn ./tun .
+	go fmt ./device ./config ./conn ./tun ./test .
 
 # Run go vet for static analysis
 vet:
 	@echo "Running go vet..."
-	go vet ./device ./config ./conn ./tun .
+	go vet ./device ./config ./conn ./tun ./test .
 
 # Security scanning targets
 

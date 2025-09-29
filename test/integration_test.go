@@ -35,8 +35,8 @@ func TestCompleteWireGuardProtocol(t *testing.T) {
 	connectUDPChannels(peer1, peer2)
 
 	// Start both peers' event loops
-	go peer1.run()
-	go peer2.run()
+	go peer1.Run()
+	go peer2.Run()
 
 	// Give them a moment to start up
 	time.Sleep(10 * time.Millisecond)
@@ -45,11 +45,11 @@ func TestCompleteWireGuardProtocol(t *testing.T) {
 	testPacket := []byte{0x45, 0x00, 0x00, 0x1c} // Basic IP header start
 
 	// Inject packet into peer1's TUN (simulates app sending packet)
-	peer1TUN := peer1.tun.(*MockTUN)
+	peer1TUN := peer1.TUN().(*MockTUN)
 	peer1TUN.InjectPacket(testPacket)
 
 	// Wait for the full round-trip to complete
-	peer2TUN := peer2.tun.(*MockTUN)
+	peer2TUN := peer2.TUN().(*MockTUN)
 	var receivedPacket []byte
 
 	// Poll for up to 1 second for the decrypted packet to arrive
@@ -105,16 +105,16 @@ func createTestPeer(t *testing.T, peerNum int, privateKey, publicKey, peerPubKey
 
 // connectUDPChannels cross-connects two peers' UDP channels
 func connectUDPChannels(peer1, peer2 *device.MiniWG) {
-	udp1 := peer1.udp.(*MockUDPConn)
-	udp2 := peer2.udp.(*MockUDPConn)
+	udp1 := peer1.UDP().(*MockUDPConn)
+	udp2 := peer2.UDP().(*MockUDPConn)
 
 	// Connect them: peer1 output → peer2 input, peer2 output → peer1 input
 	go func() {
 		for {
 			select {
-			case <-peer1.done:
+			case <-peer1.Done():
 				return
-			case <-peer2.done:
+			case <-peer2.Done():
 				return
 			default:
 				packet := udp1.ReadOutbound()
@@ -130,9 +130,9 @@ func connectUDPChannels(peer1, peer2 *device.MiniWG) {
 	go func() {
 		for {
 			select {
-			case <-peer1.done:
+			case <-peer1.Done():
 				return
-			case <-peer2.done:
+			case <-peer2.Done():
 				return
 			default:
 				packet := udp2.ReadOutbound()
