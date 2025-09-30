@@ -51,4 +51,4 @@ TODO...
 
 - [Jason](https://www.zx2c4.com) for writing such an incredible piece of software.
 - [Noise Protocol Framework](http://noiseprotocol.org/) for the cryptographic foundation.
-- [Jason](https://www.zx2c4.com) (and contributors) for the golang implementation.
+- [Jason](https://www.zx2c4.com) (and contributors) for the fantastic [golang implementation](https://github.com/WireGuard/wireguard-go).
