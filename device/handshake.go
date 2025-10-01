@@ -2,6 +2,12 @@
 //
 // Noise_IK handshake implementation for WireGuard
 //
+// WireGuard spec defines 4 distinct operations:
+// 1. Initiator creates message 1 (CreateMessageInitiation)
+// 2. Responder consumes message 1 (ConsumeMessageInitiation)
+// 3. Responder creates message 2 (CreateMessageResponse)
+// 4. Initiator consumes message 2 (ConsumeMessageResponse)
+//
 // Contains:
 // - Handshake initiation message creation and processing
 // - Handshake response message creation and processing
@@ -52,10 +58,13 @@ func CreateMessageInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]byte
 	}
 
 	// Step 1: Initialize with precomputed constants (like WireGuard-Go)
+	// hash: A tamper-evident log of everything both parties have seen and agreed upon
+	// chainingKey: A secret key vault that
 	state.chainingKey = InitialChainKey
 	state.hash = InitialHash
 
 	// Step 2: Mix responder's static public key into hash
+	// We are starting a transcript that will record everything in the handshake.
 	// hash = HASH(InitialHash || responder.static_public)
 	mixHash(&state.hash, &state.hash, peerStaticPub[:])
 
@@ -70,6 +79,7 @@ func CreateMessageInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]byte
 
 	// Step 4: Mix ephemeral public key into hash
 	// hash = HASH(hash || ephemeral)
+	// We are effectively adding the ephermeral public key to the transcript (state.hash)
 	mixHash(&state.hash, &state.hash, state.ephemeralPublic[:])
 
 	// Step 5: Mix ephemeral public key into chaining key using KDF1
@@ -159,6 +169,10 @@ func CreateMessageInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]byte
 	}
 
 	// Step 13: Calculate MAC1 and MAC2
+	// MAC1: proof of knowledge.
+	// For that, hmac the peer static public key.
+	// Purpose: Anti-DoS + Stealth (no port mapping)
+	// If that MAC1 cannot be recomputed by the peer, it will drop the package
 	// Marshal message without MACs to get bytes for MAC calculation
 	msgBytes := msg.Marshal()
 	msgBytesForMAC1 := msgBytes[:len(msgBytes)-32] // Exclude MAC1(16) + MAC2(16) = 32 bytes
@@ -171,6 +185,8 @@ func CreateMessageInitiation(ourStaticPriv, ourStaticPub, peerStaticPub [32]byte
 
 	msgBytes = msg.Marshal()
 	msgBytesForMAC2 := msgBytes[:len(msgBytes)-16]
+	// TODO: this is zero for now but if could be a cookie value if the responder sent us
+	// a cookie reply message because it is under load.
 	mac2 := calculateMAC2(msgBytesForMAC2, nil)
 	msg.MAC2 = mac2
 

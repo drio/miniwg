@@ -17,6 +17,7 @@ type MiniWGConfig struct {
 	PeerKey    [32]byte
 	LocalIndex uint32
 	PeerAddr   *net.UDPAddr
+	Debug      bool // Enable verbose packet-level logging
 }
 
 // MiniWG represents a minimal WireGuard implementation
@@ -55,6 +56,8 @@ type MiniWG struct {
 	// for production-grade shutdown with proper goroutine coordination and
 	// cleanup ordering. This simple approach works for educational purposes.
 	done chan struct{}
+
+	debug bool // Enable verbose packet-level logging
 }
 
 // NewMiniWG creates a new MiniWG instance with proper initialization
@@ -77,6 +80,7 @@ func NewMiniWG(tunDev tun.TUNDevice, udpConn conn.UDPConn, config MiniWGConfig) 
 		// Initialize timer but keep it stopped until session is established
 		rekeyTimer: time.NewTimer(REKEY_AFTER_TIME),
 		done:       make(chan struct{}),
+		debug:      config.Debug,
 	}
 
 	// Stop timer initially - will be started when handshake completes

@@ -69,7 +69,9 @@ func (wg *MiniWG) tunReader(outbound chan<- QueuedPacket) {
 			continue
 		}
 
-		log.Printf("TUN: received %d bytes", n)
+		if wg.debug {
+			log.Printf("TUN: received %d bytes", n)
+		}
 		// Non-blocking send - drop packet if main loop is overwhelmed
 		select {
 		case outbound <- QueuedPacket{Data: packet[:n]}:
@@ -95,7 +97,9 @@ func (wg *MiniWG) udpReader(handshakeChan chan<- HandshakeEvent) {
 		data := packet[:n]
 		msgType := wg.getMessageType(data)
 
-		log.Printf("UDP: received %d bytes from %s, type=%d", n, addr, msgType)
+		if wg.debug {
+			log.Printf("UDP: received %d bytes from %s, type=%d", n, addr, msgType)
+		}
 
 		switch msgType {
 		case MessageTypeHandshakeInitiation:
@@ -183,7 +187,9 @@ func (wg *MiniWG) Run() {
 // handleTUNPacket processes packets from the TUN interface
 func (wg *MiniWG) handleTUNPacket(packet []byte) {
 	if !wg.hasSession {
-		log.Printf("No session - queuing packet and initiating handshake")
+		if wg.debug {
+			log.Printf("No session - queuing packet and initiating handshake")
+		}
 
 		// Queue the packet for later transmission
 		wg.queuePacket(packet)
@@ -195,7 +201,9 @@ func (wg *MiniWG) handleTUNPacket(packet []byte) {
 		return
 	}
 
-	log.Printf("Session active - encrypting and forwarding packet")
+	if wg.debug {
+		log.Printf("Encrypting and forwarding packet")
+	}
 	if err := wg.handleTunnelTraffic(packet); err != nil {
 		log.Printf("Failed to send encrypted packet: %v", err)
 	}
@@ -203,8 +211,6 @@ func (wg *MiniWG) handleTUNPacket(packet []byte) {
 
 // handleHandshakeEvent processes handshake messages
 func (wg *MiniWG) handleHandshakeEvent(event HandshakeEvent) {
-	log.Printf("Handling handshake event: %s from %s", event.Type, event.Addr)
-
 	switch event.Type {
 	case HandshakeEventInitiation:
 		// We are the RESPONDER - peer initiated handshake with us
