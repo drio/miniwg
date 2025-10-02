@@ -9,7 +9,7 @@
 #   vet      - Run go vet
 #   security - Run security scans on packages
 
-.PHONY: all build test clean run fmt vet security gosec vulncheck help
+.PHONY: all build test test-race clean run fmt vet security gosec vulncheck help docs
 
 # Default target
 all: help
@@ -31,6 +31,11 @@ test-coverage:
 	@echo "Running tests with coverage..."
 	go test -v -cover ./device ./config ./conn ./tun
 	go test -v -cover ./test
+
+# Run tests with race detector
+test-race:
+	@echo "Running tests with race detector..."
+	go test -race ./...
 
 # Clean build artifacts
 clean:
@@ -75,7 +80,18 @@ security: gosec vulncheck
 	@echo "Security scanning complete"
 
 # Run all quality and security checks
-check: fmt vet test security
+check: fmt vet test test-race security
+
+# Generate HTML documentation from markdown
+docs:
+	@echo "Generating HTML documentation..."
+	@which pandoc > /dev/null || (echo "Error: pandoc not installed. Install with: apt-get install pandoc or brew install pandoc" && exit 1)
+	pandoc learning/learning-handshake.md -o learning/learning-handshake.html \
+		--standalone \
+		--toc \
+		--css=https://cdn.simplecss.org/simple.min.css
+	@echo "Documentation generated: learning/learning-handshake.html"
+	@echo "Open in browser: file://$(PWD)/learning/learning-handshake.html"
 
 # Show available targets
 help:
@@ -83,6 +99,7 @@ help:
 	@echo "  build         - Build the miniwg binary"
 	@echo "  test          - Run all tests"
 	@echo "  test-coverage - Run tests with coverage"
+	@echo "  test-race     - Run tests with race detector"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  run           - Build and run miniwg"
 	@echo "  fmt           - Format Go code"
@@ -90,5 +107,6 @@ help:
 	@echo "  gosec         - Run gosec security scanner"
 	@echo "  vulncheck     - Run vulnerability scanner"
 	@echo "  security      - Run all security checks"
-	@echo "  check         - Run fmt, vet, test, and security"
+	@echo "  check         - Run fmt, vet, test, test-race, and security"
+	@echo "  docs          - Generate HTML from learning-handshake.md"
 	@echo "  help          - Show this help message"

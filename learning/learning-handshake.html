@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>learning-handshake</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css" />
+</head>
+<body>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#understanding-the-wireguard-handshake"
+id="toc-understanding-the-wireguard-handshake">Understanding the
+WireGuard Handshake</a>
+<ul>
+<li><a href="#cryptography-vocabulary---the-building-blocks"
+id="toc-cryptography-vocabulary---the-building-blocks">0. Cryptography
+Vocabulary - The Building Blocks</a>
+<ul>
+<li><a href="#security-properties" id="toc-security-properties">Security
+Properties</a></li>
+<li><a href="#cryptographic-building-blocks"
+id="toc-cryptographic-building-blocks">Cryptographic Building
+Blocks</a></li>
+<li><a href="#wireguard-specific-terms"
+id="toc-wireguard-specific-terms">WireGuard-Specific Terms</a></li>
+<li><a href="#key-insight" id="toc-key-insight">Key Insight</a></li>
+</ul></li>
+<li><a href="#start-with-the-why---the-security-goals"
+id="toc-start-with-the-why---the-security-goals">1. Start with the “Why”
+- The Security Goals</a>
+<ul>
+<li><a href="#mapping-goals-to-code"
+id="toc-mapping-goals-to-code">Mapping Goals to Code</a></li>
+</ul></li>
+<li><a href="#understanding-diffie-hellman-dh"
+id="toc-understanding-diffie-hellman-dh">2. Understanding Diffie-Hellman
+(DH)</a>
+<ul>
+<li><a href="#the-magic-trick" id="toc-the-magic-trick">The Magic
+Trick</a></li>
+<li><a href="#exercise-trace-one-dh-operation"
+id="toc-exercise-trace-one-dh-operation">Exercise: Trace One DH
+Operation</a></li>
+<li><a href="#practice" id="toc-practice">Practice</a></li>
+<li><a href="#key-insight-1" id="toc-key-insight-1">Key Insight</a></li>
+</ul></li>
+<li><a href="#understanding-aead-authenticated-encryption"
+id="toc-understanding-aead-authenticated-encryption">3. Understanding
+AEAD (Authenticated Encryption)</a>
+<ul>
+<li><a href="#what-it-does" id="toc-what-it-does">What It Does</a></li>
+<li><a href="#wireguard-uses-chacha20-poly1305"
+id="toc-wireguard-uses-chacha20-poly1305">WireGuard Uses
+ChaCha20-Poly1305</a></li>
+<li><a href="#the-critical-rule-never-reuse-key-nonce"
+id="toc-the-critical-rule-never-reuse-key-nonce">The Critical Rule:
+NEVER Reuse (key, nonce)</a></li>
+<li><a href="#why-handshake-can-use-nonce0"
+id="toc-why-handshake-can-use-nonce0">Why Handshake Can Use
+nonce=0</a></li>
+<li><a href="#what-is-additional-data"
+id="toc-what-is-additional-data">What is “Additional Data”?</a></li>
+<li><a href="#exercise-trace-one-encryption"
+id="toc-exercise-trace-one-encryption">Exercise: Trace One
+Encryption</a></li>
+<li><a href="#key-insight-2" id="toc-key-insight-2">Key Insight</a></li>
+</ul></li>
+<li><a href="#understanding-kdf-key-derivation-function"
+id="toc-understanding-kdf-key-derivation-function">4. Understanding KDF
+(Key Derivation Function)</a>
+<ul>
+<li><a href="#the-problem-kdfs-solve"
+id="toc-the-problem-kdfs-solve">The Problem KDFs Solve</a></li>
+<li><a href="#hkdf-pattern-extract-then-expand"
+id="toc-hkdf-pattern-extract-then-expand">HKDF Pattern:
+Extract-then-Expand</a></li>
+<li><a href="#three-kdfs-in-wireguard"
+id="toc-three-kdfs-in-wireguard">Three KDFs in WireGuard</a></li>
+<li><a href="#the-chaining-key-concept"
+id="toc-the-chaining-key-concept">The Chaining Key Concept</a></li>
+<li><a href="#exercise-trace-kdf-usage"
+id="toc-exercise-trace-kdf-usage">Exercise: Trace KDF Usage</a></li>
+<li><a href="#key-insight-3" id="toc-key-insight-3">Key Insight</a></li>
+</ul></li>
+<li><a href="#the-hash-transcript" id="toc-the-hash-transcript">5. The
+Hash Transcript</a>
+<ul>
+<li><a href="#what-it-is" id="toc-what-it-is">What It Is</a></li>
+<li><a href="#why-different-from-chaining-key"
+id="toc-why-different-from-chaining-key">Why Different from Chaining
+Key?</a></li>
+<li><a href="#purpose-prevent-tampering"
+id="toc-purpose-prevent-tampering">Purpose: Prevent Tampering</a></li>
+<li><a href="#exercise-trace-hash-updates"
+id="toc-exercise-trace-hash-updates">Exercise: Trace Hash
+Updates</a></li>
+<li><a href="#key-insight-4" id="toc-key-insight-4">Key Insight</a></li>
+</ul></li>
+<li><a href="#putting-it-together-the-handshake-flow"
+id="toc-putting-it-together-the-handshake-flow">6. Putting It Together:
+The Handshake Flow</a>
+<ul>
+<li><a href="#step-by-step-mental-model"
+id="toc-step-by-step-mental-model">Step-by-Step Mental Model</a></li>
+<li><a href="#the-four-dh-operations"
+id="toc-the-four-dh-operations">The Four DH Operations</a></li>
+<li><a href="#message-flow" id="toc-message-flow">Message Flow</a></li>
+<li><a href="#key-insight-5" id="toc-key-insight-5">Key Insight</a></li>
+</ul></li>
+<li><a href="#learning-strategy" id="toc-learning-strategy">7. Learning
+Strategy</a>
+<ul>
+<li><a href="#build-understanding-incrementally"
+id="toc-build-understanding-incrementally">Build Understanding
+Incrementally</a></li>
+<li><a href="#active-learning-exercises"
+id="toc-active-learning-exercises">Active Learning Exercises</a></li>
+<li><a href="#debug-commands" id="toc-debug-commands">Debug
+Commands</a></li>
+<li><a href="#when-youre-stuck" id="toc-when-youre-stuck">When You’re
+Stuck</a></li>
+<li><a href="#reference-materials"
+id="toc-reference-materials">Reference Materials</a></li>
+</ul></li>
+<li><a href="#common-mental-blocks-and-how-to-overcome-them"
+id="toc-common-mental-blocks-and-how-to-overcome-them">8. Common Mental
+Blocks and How to Overcome Them</a>
+<ul>
+<li><a href="#too-many-dh-operations"
+id="toc-too-many-dh-operations">“Too Many DH Operations!”</a></li>
+<li><a href="#why-so-many-keys" id="toc-why-so-many-keys">“Why So Many
+Keys?”</a></li>
+<li><a href="#hash-vs-chainingkey-confusion"
+id="toc-hash-vs-chainingkey-confusion">“Hash vs ChainingKey
+Confusion”</a></li>
+<li><a href="#state-synchronization-is-confusing"
+id="toc-state-synchronization-is-confusing">“State Synchronization Is
+Confusing”</a></li>
+</ul></li>
+<li><a href="#final-mental-model" id="toc-final-mental-model">9. Final
+Mental Model</a></li>
+<li><a href="#youve-got-this" id="toc-youve-got-this">You’ve Got
+This!</a></li>
+<li><a href="#noise-protocol-framework---the-ik-pattern"
+id="toc-noise-protocol-framework---the-ik-pattern">10. Noise Protocol
+Framework - The IK Pattern</a>
+<ul>
+<li><a href="#what-is-noise" id="toc-what-is-noise">What is
+Noise?</a></li>
+<li><a href="#wireguard-uses-noise_ik"
+id="toc-wireguard-uses-noise_ik">WireGuard Uses Noise_IK</a></li>
+<li><a href="#other-noise-patterns-for-context"
+id="toc-other-noise-patterns-for-context">Other Noise Patterns (for
+context)</a></li>
+<li><a href="#the-ik-message-pattern"
+id="toc-the-ik-message-pattern">The IK Message Pattern</a></li>
+<li><a href="#key-insight-6" id="toc-key-insight-6">Key Insight</a></li>
+</ul></li>
+<li><a href="#mac1-and-mac2---dos-protection"
+id="toc-mac1-and-mac2---dos-protection">11. MAC1 and MAC2 - DoS
+Protection</a>
+<ul>
+<li><a href="#the-problem-handshake-amplification-attacks"
+id="toc-the-problem-handshake-amplification-attacks">The Problem:
+Handshake Amplification Attacks</a></li>
+<li><a href="#the-solution-cookie-reply-mechanism"
+id="toc-the-solution-cookie-reply-mechanism">The Solution: Cookie-Reply
+Mechanism</a></li>
+<li><a href="#how-it-works" id="toc-how-it-works">How It Works</a></li>
+<li><a href="#mac1-computation" id="toc-mac1-computation">MAC1
+Computation</a></li>
+<li><a href="#mac2-computation" id="toc-mac2-computation">MAC2
+Computation</a></li>
+<li><a href="#when-is-mac2-required" id="toc-when-is-mac2-required">When
+is MAC2 Required?</a></li>
+<li><a href="#key-insight-7" id="toc-key-insight-7">Key Insight</a></li>
+</ul></li>
+<li><a href="#pre-shared-key-psk---post-quantum-security"
+id="toc-pre-shared-key-psk---post-quantum-security">12. Pre-Shared Key
+(PSK) - Post-Quantum Security</a>
+<ul>
+<li><a href="#what-is-psk" id="toc-what-is-psk">What is PSK?</a></li>
+<li><a href="#why-use-psk" id="toc-why-use-psk">Why Use PSK?</a></li>
+<li><a href="#how-psk-is-used-in-handshake"
+id="toc-how-psk-is-used-in-handshake">How PSK is Used in
+Handshake</a></li>
+<li><a href="#psk-in-message-flow" id="toc-psk-in-message-flow">PSK in
+Message Flow</a></li>
+<li><a href="#when-to-use-psk" id="toc-when-to-use-psk">When to Use
+PSK</a></li>
+<li><a href="#key-insight-8" id="toc-key-insight-8">Key Insight</a></li>
+</ul></li>
+<li><a href="#message-wire-format" id="toc-message-wire-format">13.
+Message Wire Format</a>
+<ul>
+<li><a href="#why-format-matters" id="toc-why-format-matters">Why Format
+Matters</a></li>
+<li><a href="#message-type-1-handshake-initiation-148-bytes"
+id="toc-message-type-1-handshake-initiation-148-bytes">Message Type 1:
+Handshake Initiation (148 bytes)</a></li>
+<li><a href="#message-type-2-handshake-response-92-bytes"
+id="toc-message-type-2-handshake-response-92-bytes">Message Type 2:
+Handshake Response (92 bytes)</a></li>
+<li><a href="#message-type-4-transport-data-variable"
+id="toc-message-type-4-transport-data-variable">Message Type 4:
+Transport Data (variable)</a></li>
+<li><a href="#why-these-sizes" id="toc-why-these-sizes">Why These
+Sizes?</a></li>
+<li><a href="#key-insight-9" id="toc-key-insight-9">Key Insight</a></li>
+</ul></li>
+<li><a href="#practical-debugging" id="toc-practical-debugging">14.
+Practical Debugging</a>
+<ul>
+<li><a href="#adding-debug-logging" id="toc-adding-debug-logging">Adding
+Debug Logging</a></li>
+<li><a href="#comparing-initiator-vs-responder"
+id="toc-comparing-initiator-vs-responder">Comparing Initiator vs
+Responder</a></li>
+<li><a href="#testing-state-sync" id="toc-testing-state-sync">Testing
+State Sync</a></li>
+<li><a href="#common-handshake-failures"
+id="toc-common-handshake-failures">Common Handshake Failures</a></li>
+<li><a href="#debugging-with-wireshark"
+id="toc-debugging-with-wireshark">Debugging with Wireshark</a></li>
+<li><a href="#using-go-debugger-delve"
+id="toc-using-go-debugger-delve">Using Go Debugger (delve)</a></li>
+<li><a href="#key-insight-10" id="toc-key-insight-10">Key
+Insight</a></li>
+</ul></li>
+<li><a href="#attack-scenarios-and-mitigations"
+id="toc-attack-scenarios-and-mitigations">15. Attack Scenarios and
+Mitigations</a>
+<ul>
+<li><a href="#attack-1-passive-eavesdropping"
+id="toc-attack-1-passive-eavesdropping">Attack 1: Passive
+Eavesdropping</a></li>
+<li><a href="#attack-2-active-man-in-the-middle"
+id="toc-attack-2-active-man-in-the-middle">Attack 2: Active
+Man-in-the-Middle</a></li>
+<li><a href="#attack-3-what-if-we-remove-each-dh"
+id="toc-attack-3-what-if-we-remove-each-dh">Attack 3: What if We Remove
+Each DH?</a></li>
+<li><a href="#attack-4-dos-amplification"
+id="toc-attack-4-dos-amplification">Attack 4: DoS Amplification</a></li>
+<li><a href="#attack-5-replay-attack-in-detail"
+id="toc-attack-5-replay-attack-in-detail">Attack 5: Replay Attack in
+Detail</a></li>
+<li><a href="#key-insight-11" id="toc-key-insight-11">Key
+Insight</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="understanding-the-wireguard-handshake">Understanding the
+WireGuard Handshake</h1>
+<h2 id="cryptography-vocabulary---the-building-blocks">0. Cryptography
+Vocabulary - The Building Blocks</h2>
+<p>Before diving into the handshake, let’s define the core cryptographic
+terms you’ll encounter:</p>
+<h3 id="security-properties">Security Properties</h3>
+<p><strong>Authentication</strong> Proving identity - confirming that a
+party is who they claim to be. Example: Alice proves she has the private
+key matching her public key.</p>
+<p><strong>Encryption</strong> Transforming plaintext into ciphertext so
+only authorized parties can read it. Example: Converting “Hello” →
+“8x!2aQ” using a secret key.</p>
+<p><strong>Confidentiality</strong> Ensuring data can only be read by
+intended recipients (achieved via encryption). Example: Your message is
+encrypted so eavesdroppers can’t read it.</p>
+<p><strong>Integrity</strong> Ensuring data hasn’t been modified or
+tampered with. Example: Detecting if “Transfer $10” was changed to
+“Transfer $1000”.</p>
+<p><strong>Forward Secrecy</strong> Past sessions remain secure even if
+long-term keys are compromised later. Example: If your private key leaks
+today, yesterday’s encrypted messages remain unreadable.</p>
+<p><strong>Replay Protection</strong> Preventing attackers from
+capturing and re-sending valid messages. Example: Stopping someone from
+recording “unlock door” and replaying it later.</p>
+<h3 id="cryptographic-building-blocks">Cryptographic Building
+Blocks</h3>
+<p><strong>Symmetric Key</strong> Same key used for encryption and
+decryption. Fast but requires secure key sharing. Example: AES, ChaCha20
+- both parties must have the same secret key.</p>
+<p><strong>Asymmetric Key (Public Key Cryptography)</strong> Key pair:
+public key (shareable) and private key (secret). Example: Curve25519 -
+encrypt with public key, decrypt with private key.</p>
+<p><strong>Hash Function</strong> One-way function that produces
+fixed-size output (digest) from any input. Properties: deterministic,
+irreversible, collision-resistant. Example: BLAKE2s - same input always
+gives same hash, can’t reverse it.</p>
+<p><strong>MAC (Message Authentication Code)</strong> A tag that proves
+message authenticity and integrity using a shared secret. Example: HMAC
+- verifies message came from someone who knows the secret key.</p>
+<p><strong>AEAD (Authenticated Encryption with Associated Data)</strong>
+Combines encryption + authentication in one operation. Example:
+ChaCha20-Poly1305 - encrypts data AND proves it hasn’t been tampered
+with.</p>
+<p><strong>KDF (Key Derivation Function)</strong> Transforms secret
+material into one or more cryptographic keys. Example: HKDF - takes DH
+result and derives separate encryption keys.</p>
+<p><strong>DH (Diffie-Hellman Key Exchange)</strong> Protocol for two
+parties to agree on a shared secret over public channel. Example: Alice
+and Bob derive same secret without ever sending it.</p>
+<p><strong>Nonce (Number Used Once)</strong> A value that must never
+repeat with the same key. Ensures uniqueness. Example: Counter
+incremented for each message: 0, 1, 2, 3…</p>
+<h3 id="wireguard-specific-terms">WireGuard-Specific Terms</h3>
+<p><strong>Ephemeral Key</strong> Temporary key used for one session,
+then deleted (provides forward secrecy). Example: Generated fresh for
+each handshake, never stored.</p>
+<p><strong>Static Key</strong> Long-term key that identifies a peer
+(like your identity). Example: Your WireGuard private/public key pair in
+the config.</p>
+<p><strong>Session Key / Transport Key</strong> Short-lived keys derived
+from handshake, used to encrypt data packets. Example: After handshake
+completes, these encrypt your actual traffic.</p>
+<p><strong>Chaining Key</strong> Running accumulator of all secrets
+during handshake (internal state). Example: Continuously updated as each
+DH operation adds new secret material.</p>
+<p><strong>Hash Transcript</strong> Running hash of all messages
+exchanged (tamper-evident log). Example: Records every public key and
+ciphertext sent/received.</p>
+<p><strong>Initiator</strong> The peer who starts the handshake (sends
+message 1).</p>
+<p><strong>Responder</strong> The peer who receives the handshake and
+responds (sends message 2).</p>
+<h3 id="key-insight">Key Insight</h3>
+<p>These terms build on each other. Understanding each individually
+makes the full handshake comprehensible:</p>
+<pre><code>DH creates shared secret
+  ↓
+KDF derives keys from secret
+  ↓
+AEAD encrypts with derived keys
+  ↓
+Hash transcript proves no tampering
+  ↓
+Result: Authenticated, encrypted, forward-secret session</code></pre>
+<hr />
+<h2 id="start-with-the-why---the-security-goals">1. Start with the “Why”
+- The Security Goals</h2>
+<p>Before diving into crypto, understand what the handshake must
+achieve:</p>
+<p><strong>Ask yourself</strong>: What would a “perfect” handshake do? -
+✅ Prove both parties are who they claim (authentication) - ✅ Derive a
+shared secret only they know (key agreement) - ✅ Protect past sessions
+if keys leak later (forward secrecy) - ✅ Hide who’s talking to whom
+(identity hiding) - ✅ Prevent replay attacks (freshness) - ✅ Be fast
+and simple</p>
+<p><strong>Exercise</strong>: Write down these goals. For each line of
+handshake code, ask “which goal does this serve?”</p>
+<h3 id="mapping-goals-to-code">Mapping Goals to Code</h3>
+<p>As you read the handshake, annotate which goal each step serves:</p>
+<pre><code>Generate ephemeral keypair          → Forward secrecy
+DH(ephemeral × static)             → Key agreement + Identity hiding
+DH(static × static)                → Authentication
+Encrypt static key                 → Identity hiding
+Encrypt timestamp                  → Freshness / Replay protection
+MAC1                              → DoS protection</code></pre>
+<p><strong>Key insight</strong>: Every operation serves at least one
+security goal. Nothing is arbitrary.</p>
+<hr />
+<h2 id="understanding-diffie-hellman-dh">2. Understanding Diffie-Hellman
+(DH)</h2>
+<h3 id="the-magic-trick">The Magic Trick</h3>
+<p><strong>Goal</strong>: Alice and Bob want a shared secret, but only
+talk over public channel</p>
+<p><strong>The Math Property (Curve25519)</strong>:</p>
+<pre><code>Alice: private_A × BasePoint = public_A
+Bob:   private_B × BasePoint = public_B
+
+Alice computes: private_A × public_B = shared_secret
+Bob computes:   private_B × public_A = shared_secret
+
+SAME SECRET! (because × is commutative)</code></pre>
+<p><strong>Eavesdropper sees</strong>: public_A, public_B (can’t compute
+shared_secret without private keys)</p>
+<h3 id="exercise-trace-one-dh-operation">Exercise: Trace One DH
+Operation</h3>
+<p>From handshake.go:86-89:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode go"><code class="sourceCode go"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>dhResult1<span class="op">,</span> err <span class="op">:=</span> dhOperation<span class="op">(</span>state<span class="op">.</span>ephemeralPrivate<span class="op">,</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>                               state<span class="op">.</span>peerStaticPublic<span class="op">)</span></span></code></pre></div>
+<p><strong>What this does</strong>: - Input: My ephemeral private key ×
+Peer’s static public key - Output: Shared secret only I and peer can
+compute - Peer will compute: Their static private × My ephemeral public
+= SAME secret</p>
+<p><strong>Why it matters</strong>: This shared secret becomes an
+encryption key</p>
+<h3 id="practice">Practice</h3>
+<ol type="1">
+<li>Generate two keypairs (use crypto.go:GenerateKeypair)</li>
+<li>Compute DH from both sides</li>
+<li>Verify you get the same result</li>
+<li>Try with wrong private key - different result!</li>
+</ol>
+<h3 id="key-insight-1">Key Insight</h3>
+<p>DH doesn’t encrypt anything. It just creates a shared secret between
+two parties who each have one private key and one public key.</p>
+<hr />
+<h2 id="understanding-aead-authenticated-encryption">3. Understanding
+AEAD (Authenticated Encryption)</h2>
+<h3 id="what-it-does">What It Does</h3>
+<p><strong>AEAD = Authenticated Encryption with Associated
+Data</strong></p>
+<p>Three operations in one:</p>
+<ol type="1">
+<li><strong>Encrypt</strong> plaintext → ciphertext</li>
+<li><strong>Authenticate</strong> ciphertext (detect tampering)</li>
+<li><strong>Authenticate</strong> additional data (without encrypting
+it)</li>
+</ol>
+<h3 id="wireguard-uses-chacha20-poly1305">WireGuard Uses
+ChaCha20-Poly1305</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode go"><code class="sourceCode go"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>ciphertext <span class="op">=</span> AEAD_Encrypt<span class="op">(</span>key<span class="op">,</span> nonce<span class="op">,</span> plaintext<span class="op">,</span> additionalData<span class="op">)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Returns: encrypted_plaintext || 16_byte_auth_tag</span></span></code></pre></div>
+<p><strong>Decryption</strong>:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode go"><code class="sourceCode go"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>plaintext <span class="op">=</span> AEAD_Decrypt<span class="op">(</span>key<span class="op">,</span> nonce<span class="op">,</span> ciphertext<span class="op">,</span> additionalData<span class="op">)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co">// If auth tag doesn&#39;t match → ERROR (tampering detected!)</span></span></code></pre></div>
+<h3 id="the-critical-rule-never-reuse-key-nonce">The Critical Rule:
+NEVER Reuse (key, nonce)</h3>
+<pre><code>✅ GOOD:
+encrypt(key, nonce=0, msg1)
+encrypt(key, nonce=1, msg2)  // Different nonce
+
+❌ CATASTROPHIC:
+encrypt(key, nonce=0, msg1)
+encrypt(key, nonce=0, msg2)  // Same (key, nonce) → Security broken!</code></pre>
+<h3 id="why-handshake-can-use-nonce0">Why Handshake Can Use nonce=0</h3>
+<p>Each encryption key in the handshake is
+<strong>single-use</strong>:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode go"><code class="sourceCode go"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Step 7: Encrypt static key</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>encryptedStatic <span class="op">=</span> AEAD<span class="op">(</span>tempKey1<span class="op">,</span> nonce<span class="op">=</span><span class="dv">0</span><span class="op">,</span> ourStaticPub<span class="op">,</span> hash<span class="op">)</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co">// tempKey1 is NEVER used again!</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Step 10: Encrypt timestamp</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>encryptedTimestamp <span class="op">=</span> AEAD<span class="op">(</span>tempKey2<span class="op">,</span> nonce<span class="op">=</span><span class="dv">0</span><span class="op">,</span> timestamp<span class="op">,</span> hash<span class="op">)</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co">// tempKey2 is NEVER used again!</span></span></code></pre></div>
+<p>Each key used exactly once → safe to use nonce=0</p>
+<h3 id="what-is-additional-data">What is “Additional Data”?</h3>
+<p>Data that’s <strong>authenticated but NOT encrypted</strong>:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode go"><code class="sourceCode go"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>encryptedStatic <span class="op">=</span> AEAD<span class="op">(</span>key<span class="op">,</span> nonce<span class="op">=</span><span class="dv">0</span><span class="op">,</span> ourStaticPub<span class="op">,</span> hash<span class="op">)</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co">//                                    ^^^^^^^^^^^^  ^^^^</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co">//                                    encrypted     authenticated (not encrypted)</span></span></code></pre></div>
+<p><strong>Why?</strong> Binds encryption to context. If someone tampers
+with the hash (the transcript), decryption fails.</p>
+<h3 id="exercise-trace-one-encryption">Exercise: Trace One
+Encryption</h3>
+<p>From handshake.go:103:</p>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>encryptedStatic <span class="op">=</span> chachaPolyEncrypt<span class="op">(</span>state<span class="op">.</span>tempKey1<span class="op">,</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>                                    state<span class="op">.</span>ourStaticPublic<span class="op">[:],</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>                                    state<span class="op">.</span>hash<span class="op">[:])</span></span></code></pre></div>
+<p><strong>What happens</strong>:</p>
+<ol type="1">
+<li>Encrypt <code>ourStaticPublic</code> (32 bytes) with
+<code>tempKey1</code></li>
+<li>Compute auth tag over: encrypted data + hash (additional data)</li>
+<li>Return: 32 encrypted bytes + 16 byte tag = 48 bytes total</li>
+</ol>
+<p><strong>Responder will</strong>:</p>
+<ol type="1">
+<li>Use same key (from same DH operation)</li>
+<li>Decrypt with same hash as additional data</li>
+<li>If hash is wrong → auth tag mismatch → handshake fails</li>
+</ol>
+<h3 id="key-insight-2">Key Insight</h3>
+<p>AEAD is the “lock and seal” - it encrypts AND proves no tampering.
+The additional data is the “envelope” - authenticated but readable
+context.</p>
+<hr />
+<h2 id="understanding-kdf-key-derivation-function">4. Understanding KDF
+(Key Derivation Function)</h2>
+<h3 id="the-problem-kdfs-solve">The Problem KDFs Solve</h3>
+<p><strong>Never use raw secrets directly</strong>:</p>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>sharedSecret <span class="op">=</span> DH<span class="op">(</span>myPrivate<span class="op">,</span> theirPublic<span class="op">)</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>encryptionKey <span class="op">=</span> sharedSecret  <span class="co">// ❌ BAD!</span></span></code></pre></div>
+<p><strong>Why bad?</strong> - DH output has structure (not uniformly
+random) - No domain separation (can’t derive multiple keys safely) -
+Single point of failure</p>
+<h3 id="hkdf-pattern-extract-then-expand">HKDF Pattern:
+Extract-then-Expand</h3>
+<p><strong>Extract</strong> (strengthen):</p>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>strongKey <span class="op">=</span> HMAC<span class="op">(</span>salt<span class="op">,</span> inputMaterial<span class="op">)</span></span></code></pre></div>
+<p><strong>Expand</strong> (stretch):</p>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>output1 <span class="op">=</span> HMAC<span class="op">(</span>strongKey<span class="op">,</span> <span class="bn">0x1</span><span class="op">)</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>output2 <span class="op">=</span> HMAC<span class="op">(</span>strongKey<span class="op">,</span> output1 <span class="op">||</span> <span class="bn">0x2</span><span class="op">)</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>output3 <span class="op">=</span> HMAC<span class="op">(</span>strongKey<span class="op">,</span> output2 <span class="op">||</span> <span class="bn">0x3</span><span class="op">)</span></span></code></pre></div>
+<p>The counters (0x1, 0x2, 0x3) provide <strong>domain
+separation</strong> - makes each output cryptographically
+independent.</p>
+<h3 id="three-kdfs-in-wireguard">Three KDFs in WireGuard</h3>
+<p><strong>kdf1</strong> - One output:</p>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>newChainingKey <span class="op">=</span> kdf1<span class="op">(</span>chainingKey<span class="op">,</span> newData<span class="op">)</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Updates the chain with new data</span></span></code></pre></div>
+<p><strong>kdf2</strong> - Two outputs:</p>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>newChainingKey<span class="op">,</span> encryptionKey <span class="op">=</span> kdf2<span class="op">(</span>chainingKey<span class="op">,</span> dhResult<span class="op">)</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Continue the chain</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Derive encryption key for immediate use</span></span></code></pre></div>
+<p><strong>kdf3</strong> - Three outputs:</p>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>newChainingKey<span class="op">,</span> tau<span class="op">,</span> encryptionKey <span class="op">=</span> kdf3<span class="op">(</span>chainingKey<span class="op">,</span> presharedKey<span class="op">)</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Continue the chain</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. tau (mixed into hash)</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Encryption key</span></span></code></pre></div>
+<h3 id="the-chaining-key-concept">The Chaining Key Concept</h3>
+<p>Think of it as a <strong>cryptographic ledger</strong>:</p>
+<pre><code>Start:    chainingKey = InitialChainKey
+Step 1:   chainingKey = kdf1(chainingKey, ephemeral)       // Added ephemeral
+Step 2:   chainingKey = kdf2(chainingKey, DH1)             // Added DH1 secret
+Step 3:   chainingKey = kdf2(chainingKey, DH2)             // Added DH2 secret
+...
+Final:    chainingKey contains ALL secrets mixed together</code></pre>
+<p><strong>Final transport keys derived from this complete
+chain</strong>:</p>
+<div class="sourceCode" id="cb18"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>sendKey<span class="op">,</span> recvKey <span class="op">=</span> kdf2<span class="op">(</span>finalChainingKey<span class="op">,</span> <span class="ot">nil</span><span class="op">)</span></span></code></pre></div>
+<h3 id="exercise-trace-kdf-usage">Exercise: Trace KDF Usage</h3>
+<p>From handshake.go:94-98:</p>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>newChainingKey2<span class="op">,</span> encryptKey1<span class="op">,</span> err <span class="op">:=</span> kdf2<span class="op">(</span>state<span class="op">.</span>chainingKey<span class="op">[:],</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>                                           dhResult1<span class="op">[:])</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>state<span class="op">.</span>chainingKey <span class="op">=</span> newChainingKey2</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>state<span class="op">.</span>tempKey1 <span class="op">=</span> encryptKey1</span></code></pre></div>
+<p><strong>What happens</strong>:</p>
+<ol type="1">
+<li>Input: Current chainingKey + DH shared secret</li>
+<li>Extract: Mix them with HMAC</li>
+<li>Expand: Derive two independent keys</li>
+<li>Output 1: New chainingKey (continues the chain)</li>
+<li>Output 2: Encryption key (used once to encrypt static key)</li>
+</ol>
+<p><strong>Why two outputs?</strong></p>
+<ul>
+<li>Need to continue accumulating secrets (chainingKey)</li>
+<li>Need encryption key for this step (tempKey1)</li>
+</ul>
+<h3 id="key-insight-3">Key Insight</h3>
+<p>KDF is the “key factory” - turns raw secrets into proper encryption
+keys. The chaining key is a running total of all secrets accumulated
+during the handshake.</p>
+<hr />
+<h2 id="the-hash-transcript">5. The Hash Transcript</h2>
+<h3 id="what-it-is">What It Is</h3>
+<p>A <strong>running hash of all messages</strong> exchanged:</p>
+<div class="sourceCode" id="cb20"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>hash <span class="op">=</span> InitialHash</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>hash <span class="op">=</span> HASH<span class="op">(</span>hash <span class="op">||</span> peer_static_public<span class="op">)</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>hash <span class="op">=</span> HASH<span class="op">(</span>hash <span class="op">||</span> ephemeral_public<span class="op">)</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>hash <span class="op">=</span> HASH<span class="op">(</span>hash <span class="op">||</span> encrypted_static<span class="op">)</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>hash <span class="op">=</span> HASH<span class="op">(</span>hash <span class="op">||</span> encrypted_timestamp<span class="op">)</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="co">// ... keeps recording</span></span></code></pre></div>
+<h3 id="why-different-from-chaining-key">Why Different from Chaining
+Key?</h3>
+<table>
+<thead>
+<tr>
+<th>Hash Transcript</th>
+<th>Chaining Key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Records <strong>what was sent</strong></td>
+<td>Records <strong>secrets shared</strong></td>
+</tr>
+<tr>
+<td>Public + encrypted data</td>
+<td>Only secret data (DH results)</td>
+</tr>
+<tr>
+<td>Used for <strong>authentication</strong></td>
+<td>Used for <strong>key derivation</strong></td>
+</tr>
+<tr>
+<td>Used as AEAD additional data</td>
+<td>Used to derive encryption keys</td>
+</tr>
+</tbody>
+</table>
+<h3 id="purpose-prevent-tampering">Purpose: Prevent Tampering</h3>
+<p>Used as <strong>additional data in AEAD</strong>:</p>
+<div class="sourceCode" id="cb21"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>encrypted <span class="op">=</span> AEAD<span class="op">(</span>key<span class="op">,</span> nonce<span class="op">,</span> plaintext<span class="op">,</span> hash<span class="op">)</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="co">//                                      ^^^^</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co">//                                      Current transcript state</span></span></code></pre></div>
+<p>If attacker modifies earlier messages → hash changes → AEAD
+decryption fails</p>
+<h3 id="exercise-trace-hash-updates">Exercise: Trace Hash Updates</h3>
+<p>From handshake.go:</p>
+<div class="sourceCode" id="cb22"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>Line <span class="dv">62</span><span class="op">:</span>  mixHash<span class="op">(&amp;</span>state<span class="op">.</span>hash<span class="op">,</span> <span class="op">&amp;</span>state<span class="op">.</span>hash<span class="op">,</span> peerStaticPub<span class="op">[:])</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>Line <span class="dv">77</span><span class="op">:</span>  mixHash<span class="op">(&amp;</span>state<span class="op">.</span>hash<span class="op">,</span> <span class="op">&amp;</span>state<span class="op">.</span>hash<span class="op">,</span> state<span class="op">.</span>ephemeralPublic<span class="op">[:])</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>Line <span class="dv">114</span><span class="op">:</span> mixHash<span class="op">(&amp;</span>state<span class="op">.</span>hash<span class="op">,</span> <span class="op">&amp;</span>state<span class="op">.</span>hash<span class="op">,</span> state<span class="op">.</span>encryptedStatic<span class="op">[:])</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>Line <span class="dv">150</span><span class="op">:</span> mixHash<span class="op">(&amp;</span>state<span class="op">.</span>hash<span class="op">,</span> <span class="op">&amp;</span>state<span class="op">.</span>hash<span class="op">,</span> state<span class="op">.</span>encryptedTimestamp<span class="op">[:])</span></span></code></pre></div>
+<p><strong>Pattern</strong>: After every significant event, update the
+transcript</p>
+<p><strong>Result</strong>: Final hash = cryptographic summary of entire
+conversation</p>
+<h3 id="key-insight-4">Key Insight</h3>
+<p>The hash is a <strong>tamper-evident log</strong>. Both parties
+maintain identical logs. Any divergence → handshake fails.</p>
+<hr />
+<h2 id="putting-it-together-the-handshake-flow">6. Putting It Together:
+The Handshake Flow</h2>
+<h3 id="step-by-step-mental-model">Step-by-Step Mental Model</h3>
+<p><strong>Think of the handshake as building a house</strong>:</p>
+<ol type="1">
+<li><strong>Foundation</strong> (Initialize):
+<ul>
+<li>Both start with same foundation (InitialChainKey, InitialHash)</li>
+</ul></li>
+<li><strong>Frame</strong> (Message 1 - DH operations 1 &amp; 2):
+<ul>
+<li>Initiator generates ephemeral key (temporary support beam)</li>
+<li>DH #1: Create first shared secret → encrypt identity</li>
+<li>DH #2: Create second shared secret → prove authentication</li>
+</ul></li>
+<li><strong>Roof</strong> (Message 2 - DH operations 3 &amp; 4):
+<ul>
+<li>Responder generates ephemeral key (complete the frame)</li>
+<li>DH #3: Ephemeral-ephemeral → forward secrecy (can tear down
+temporary beams later)</li>
+<li>DH #4: Final binding → lock everything together</li>
+</ul></li>
+<li><strong>Move In</strong> (Derive Transport Keys):
+<ul>
+<li>House complete, derive final keys from accumulated secrets</li>
+<li>Start encrypting data</li>
+</ul></li>
+</ol>
+<h3 id="the-four-dh-operations">The Four DH Operations</h3>
+<p>Each DH serves a specific purpose:</p>
+<pre><code>DH #1: ephemeral_i × static_r
+→ Purpose: Encrypt initiator&#39;s identity
+  (only responder can decrypt)
+
+DH #2: static_i × static_r
+→ Purpose: Mutual authentication
+  (prove both have private keys)
+
+DH #3: ephemeral_i × ephemeral_r
+→ Purpose: Forward secrecy
+  (ephemeral keys deleted after handshake)
+
+DH #4: static_i × ephemeral_r
+→ Purpose: Bind responder&#39;s ephemeral to initiator&#39;s identity</code></pre>
+<p>All four DH results → mixed into chainingKey → derive transport
+keys</p>
+<h3 id="message-flow">Message Flow</h3>
+<pre><code>Initiator                           Responder
+---------                           ---------
+
+1. Generate ephemeral
+2. DH #1 (eph × peer_static)
+3. Encrypt my static key
+4. DH #2 (static × peer_static)
+5. Encrypt timestamp
+6. Send message 1 ───────────────→
+
+                                    7. Receive message 1
+                                    8. Validate MAC1
+                                    9. DH #1
+                                       (static × initiator_eph)
+                                    10. Decrypt initiator static
+                                    11. DH #2
+                                        (static × initiator_static)
+                                    12. Decrypt timestamp
+                                    13. Validate timestamp
+
+                                    14. Generate ephemeral
+                                    15. DH #3
+                                        (eph × initiator_eph)
+                                    16. DH #4
+                                        (eph × initiator_static)
+                                    17. Mix PSK
+                                    18. Encrypt empty
+                                    19. Send message 2 ←──────────────
+
+20. Receive message 2
+21. Validate MAC1
+22. DH #3
+    (eph × responder_eph)
+23. DH #4
+    (static × responder_eph)
+24. Mix PSK
+25. Decrypt empty
+26. Validate
+
+Both now have identical chainingKey
+Both derive: sendKey, recvKey = kdf2(chainingKey, nil)
+Initiator uses: send=key1, recv=key2
+Responder uses: send=key2, recv=key1  (swapped!)
+
+Session established ✓</code></pre>
+<h3 id="key-insight-5">Key Insight</h3>
+<p>The handshake is a carefully choreographed dance where both
+parties:</p>
+<ol type="1">
+<li>Perform same crypto operations (staying in sync)</li>
+<li>Accumulate secrets into chainingKey (building up entropy)</li>
+<li>Maintain hash transcript (tamper-evident log)</li>
+<li>Arrive at identical state (synchronized)</li>
+<li>Derive transport keys (ready to encrypt data)</li>
+</ol>
+<hr />
+<h2 id="learning-strategy">7. Learning Strategy</h2>
+<h3 id="build-understanding-incrementally">Build Understanding
+Incrementally</h3>
+<p><strong>Week 1: Primitives</strong> - Study DH in isolation
+(crypto.go:28-50) - Study AEAD in isolation (crypto.go:201-238) - Study
+KDF in isolation (crypto.go:113-193) - <strong>Don’t</strong> try to
+understand the full handshake yet</p>
+<p><strong>Week 2: Simple Flows</strong> - Trace ONE DH operation
+through both sides - Trace ONE encryption/decryption through both sides
+- Trace how chainingKey updates through one KDF call</p>
+<p><strong>Week 3: First Half of Handshake</strong> - Study
+CreateMessageInitiation (initiator side) - Study
+ConsumeMessageInitiation (responder side) - Focus on: “How does
+responder sync state?”</p>
+<p><strong>Week 4: Second Half</strong> - Study CreateMessageResponse
+(responder side) - Study ConsumeMessageResponse (initiator side) - Focus
+on: “How do transport keys get derived?”</p>
+<h3 id="active-learning-exercises">Active Learning Exercises</h3>
+<ol type="1">
+<li><strong>Draw it</strong>: Sketch the message flow on paper</li>
+<li><strong>Trace it</strong>: Use a debugger, step through one
+handshake</li>
+<li><strong>Break it</strong>: Remove one DH - what security property
+breaks?</li>
+<li><strong>Modify it</strong>: Change one hash input - where does it
+fail?</li>
+<li><strong>Teach it</strong>: Explain to rubber duck/friend without
+looking at code</li>
+</ol>
+<h3 id="debug-commands">Debug Commands</h3>
+<div class="sourceCode" id="cb25"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run tests with verbose output</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="ex">go</span> test <span class="at">-v</span> ./device <span class="at">-run</span> TestHandshake</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Run with race detector</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="ex">go</span> test <span class="at">-race</span> ./device</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Step through with delve debugger</span></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="ex">dlv</span> test ./device <span class="at">--</span> <span class="at">-test.run</span> TestHandshake</span></code></pre></div>
+<h3 id="when-youre-stuck">When You’re Stuck</h3>
+<p>Ask yourself:</p>
+<ol type="1">
+<li><strong>Which security goal does this serve?</strong> (auth, key
+agreement, forward secrecy, etc.)</li>
+<li><strong>What would an attacker do if we removed this?</strong></li>
+<li><strong>How does this contribute to the final transport
+keys?</strong></li>
+<li><strong>Is this creating a secret or authenticating
+data?</strong></li>
+</ol>
+<h3 id="reference-materials">Reference Materials</h3>
+<ul>
+<li>WireGuard paper: <code>docs/wireguard.pdf</code></li>
+<li>Noise Protocol spec: https://noiseprotocol.org/noise.html</li>
+<li>Your flashcards: <code>claude/anki.basics.txt</code>,
+<code>claude/anki.syncstate.txt</code></li>
+<li>Official implementation:
+<code>~/dev/github.com/Wireguard/wireguard-go</code></li>
+</ul>
+<hr />
+<h2 id="common-mental-blocks-and-how-to-overcome-them">8. Common Mental
+Blocks and How to Overcome Them</h2>
+<h3 id="too-many-dh-operations">“Too Many DH Operations!”</h3>
+<p><strong>Simplify</strong>: Group them by purpose - DH #1 &amp; #2:
+Message 1 (initiator proves identity) - DH #3 &amp; #4: Message 2
+(responder completes handshake)</p>
+<p><strong>Remember</strong>: Each DH creates ONE shared secret. Four DH
+= four secrets. All four go into chainingKey.</p>
+<h3 id="why-so-many-keys">“Why So Many Keys?”</h3>
+<p><strong>Think in layers</strong>: - <strong>Ephemeral keys</strong>:
+Temporary (forward secrecy) - <strong>Static keys</strong>: Permanent
+(authentication) - <strong>Encryption keys</strong> (tempKey1,
+tempKey2): Single-use (from DH results) - <strong>Transport
+keys</strong>: Final (from complete chainingKey)</p>
+<p><strong>Each layer serves a purpose</strong>. Draw boxes and arrows
+to visualize.</p>
+<h3 id="hash-vs-chainingkey-confusion">“Hash vs ChainingKey
+Confusion”</h3>
+<p><strong>Use this table</strong>:</p>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 20%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr>
+<th>Question</th>
+<th>Hash</th>
+<th>ChainingKey</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What goes in?</td>
+<td>All data (public + encrypted)</td>
+<td>Only secrets (DH results)</td>
+</tr>
+<tr>
+<td>Where is it used?</td>
+<td>AEAD additional data</td>
+<td>KDF input</td>
+</tr>
+<tr>
+<td>What’s it for?</td>
+<td>Authentication / tamper detection</td>
+<td>Key derivation</td>
+</tr>
+<tr>
+<td>Does it contain secrets?</td>
+<td>No (public log)</td>
+<td>Yes (accumulated secrets)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="state-synchronization-is-confusing">“State Synchronization Is
+Confusing”</h3>
+<p><strong>Key realization</strong>: - Both parties do <strong>same
+operations</strong> - But from <strong>different perspectives</strong>
+(Alice uses her private key, Bob uses his) - DH is
+<strong>commutative</strong> so they get <strong>same shared
+secrets</strong> - Result: <strong>identical hash and
+chainingKey</strong></p>
+<p><strong>Test it</strong>: Run handshake in debugger, pause at end of
+each function, compare initiator and responder values.</p>
+<hr />
+<h2 id="final-mental-model">9. Final Mental Model</h2>
+<p>The handshake is like two people building the same LEGO model:</p>
+<ol type="1">
+<li><strong>Same instructions</strong> (Noise_IK protocol)</li>
+<li><strong>Different pieces</strong> (different private keys)</li>
+<li><strong>Trade pieces</strong> (exchange public keys/messages)</li>
+<li><strong>Build together</strong> (DH operations create shared
+secrets)</li>
+<li><strong>Same result</strong> (identical chainingKey and hash)</li>
+<li><strong>Use the model</strong> (derive transport keys, encrypt
+data)</li>
+</ol>
+<p>If at any step the models don’t match → handshake fails.</p>
+<p><strong>The beauty</strong>: Even though they start with different
+secrets (private keys), they arrive at the same shared state through
+carefully designed crypto operations.</p>
+<hr />
+<h2 id="youve-got-this">You’ve Got This!</h2>
+<p>The handshake seems overwhelming because it combines multiple
+primitives in a specific sequence. But each piece is understandable on
+its own.</p>
+<p><strong>Start small. Build up. Connect the dots.</strong></p>
+<p>Take breaks. It took the cryptographers years to design this. It’s OK
+if it takes you weeks to fully understand it.</p>
+<p>The fact that you’re asking “why do we use these primitives?” shows
+you’re thinking deeply. Keep that curiosity. It will lead to true
+understanding.</p>
+<hr />
+<h2 id="noise-protocol-framework---the-ik-pattern">10. Noise Protocol
+Framework - The IK Pattern</h2>
+<h3 id="what-is-noise">What is Noise?</h3>
+<p>Noise is a <strong>framework for building crypto protocols</strong>.
+Instead of inventing handshakes from scratch, you pick a proven
+pattern.</p>
+<p>Think of it like LEGO instructions - different patterns for different
+needs.</p>
+<h3 id="wireguard-uses-noise_ik">WireGuard Uses Noise_IK</h3>
+<p><strong>IK = Identity + Known</strong></p>
+<ul>
+<li><strong>I (Identity)</strong>: Initiator sends their static key
+(encrypted)</li>
+<li><strong>K (Known)</strong>: Responder’s static key is known in
+advance</li>
+</ul>
+<p><strong>Why IK?</strong> - Initiator must know responder’s public key
+before starting - Provides identity hiding (initiator’s identity is
+encrypted) - One round-trip handshake (fast!) - Mutual
+authentication</p>
+<h3 id="other-noise-patterns-for-context">Other Noise Patterns (for
+context)</h3>
+<p><strong>XX</strong>: Neither party knows the other’s key - More
+flexible, but 1.5 round trips - Used by: Signal protocol</p>
+<p><strong>NK</strong>: Only responder sends identity - One-way
+authentication - Used when server authenticates to client, but not vice
+versa</p>
+<p><strong>IK (WireGuard’s choice)</strong>: - Both authenticate - Fast
+(1 round trip) - Initiator identity hidden from passive observers</p>
+<h3 id="the-ik-message-pattern">The IK Message Pattern</h3>
+<pre><code>→ e, es, s, ss
+← e, ee, se</code></pre>
+<p><strong>Message 1 (initiator → responder)</strong>: - <code>e</code>:
+Send ephemeral public key - <code>es</code>: DH(ephemeral_i, static_r) -
+mix into key - <code>s</code>: Send static public key (encrypted with
+key from <code>es</code>) - <code>ss</code>: DH(static_i, static_r) -
+mix into key</p>
+<p><strong>Message 2 (responder → initiator)</strong>: - <code>e</code>:
+Send ephemeral public key - <code>ee</code>: DH(ephemeral_i,
+ephemeral_r) - mix into key - <code>se</code>: DH(static_i, ephemeral_r)
+- mix into key</p>
+<p>This notation directly maps to the 4 DH operations in WireGuard!</p>
+<h3 id="key-insight-6">Key Insight</h3>
+<p>Noise_IK gives WireGuard its security properties for free.
+Understanding IK helps you see why the handshake is structured this way
+- it’s following a proven, formally verified pattern.</p>
+<hr />
+<h2 id="mac1-and-mac2---dos-protection">11. MAC1 and MAC2 - DoS
+Protection</h2>
+<h3 id="the-problem-handshake-amplification-attacks">The Problem:
+Handshake Amplification Attacks</h3>
+<p><strong>Attack scenario</strong>:</p>
+<ol type="1">
+<li>Attacker spoofs victim’s IP address</li>
+<li>Sends handshake initiation to WireGuard server</li>
+<li>Server does expensive crypto (DH operations)</li>
+<li>Server sends large response to victim</li>
+<li>Attacker repeats with minimal cost</li>
+</ol>
+<p>Result: <strong>DDoS amplification</strong> - attacker uses server to
+flood victim</p>
+<h3 id="the-solution-cookie-reply-mechanism">The Solution: Cookie-Reply
+Mechanism</h3>
+<p><strong>MAC1</strong>: Always present, proves sender knows
+responder’s public key <strong>MAC2</strong>: Optional, proves sender
+recently received a cookie</p>
+<h3 id="how-it-works">How It Works</h3>
+<p><strong>Normal case (no attack)</strong>:</p>
+<pre><code>Initiator → Responder: Handshake with MAC1 (MAC2 empty)
+Responder: Validates MAC1, processes handshake</code></pre>
+<p><strong>Under load (potential attack)</strong>:</p>
+<pre><code>Initiator → Responder: Handshake with MAC1 (MAC2 empty)
+Responder: Validates MAC1, but system is under load
+Responder → Initiator: Cookie-reply message (NOT handshake response)
+Initiator: Stores cookie
+Initiator → Responder: Handshake with MAC1 + MAC2 (includes cookie)
+Responder: Validates MAC2, processes handshake</code></pre>
+<h3 id="mac1-computation">MAC1 Computation</h3>
+<div class="sourceCode" id="cb29"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>mac1Key <span class="op">=</span> HASH<span class="op">(</span><span class="st">&quot;mac1----&quot;</span> <span class="op">||</span> responderPublicKey<span class="op">)</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>mac1 <span class="op">=</span> MAC<span class="op">(</span>mac1Key<span class="op">,</span> entireMessage<span class="op">[</span><span class="dv">0</span><span class="op">:</span><span class="dv">116</span><span class="op">])</span></span></code></pre></div>
+<p><strong>Purpose</strong>: Proves sender knows responder’s public key.
+Prevents random garbage packets from consuming CPU.</p>
+<h3 id="mac2-computation">MAC2 Computation</h3>
+<div class="sourceCode" id="cb30"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Responder sends cookie encrypted with sender&#39;s IP</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>cookie <span class="op">=</span> AEAD_Encrypt<span class="op">(</span>cookieKey<span class="op">,</span> nonce<span class="op">,</span> randomBytes<span class="op">,</span> senderIP<span class="op">)</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Initiator uses cookie for MAC2</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>mac2 <span class="op">=</span> MAC<span class="op">(</span>cookie<span class="op">,</span> entireMessage<span class="op">[</span><span class="dv">0</span><span class="op">:</span><span class="dv">116</span><span class="op">])</span></span></code></pre></div>
+<p><strong>Purpose</strong>: Proves sender received a cookie from this
+server recently. IP address is bound to cookie, so attacker can’t use
+victim’s IP.</p>
+<h3 id="when-is-mac2-required">When is MAC2 Required?</h3>
+<ul>
+<li>Responder tracks load (packets per second)</li>
+<li>If load exceeds threshold → require MAC2</li>
+<li>If initiator sends without MAC2 → send cookie-reply</li>
+<li>If initiator sends with valid MAC2 → process handshake</li>
+</ul>
+<h3 id="key-insight-7">Key Insight</h3>
+<p>MAC1/MAC2 create a stateless cookie system. Server doesn’t store
+state until handshake is validated. This prevents resource exhaustion
+attacks while allowing legitimate peers to connect quickly.</p>
+<hr />
+<h2 id="pre-shared-key-psk---post-quantum-security">12. Pre-Shared Key
+(PSK) - Post-Quantum Security</h2>
+<h3 id="what-is-psk">What is PSK?</h3>
+<p>An <strong>optional shared secret</strong> both peers know in advance
+(like a password). Mixed into the handshake for additional security.</p>
+<h3 id="why-use-psk">Why Use PSK?</h3>
+<p><strong>Post-quantum security</strong>: If quantum computers break
+Curve25519 in the future, past traffic remains secure because PSK
+(shared via different channel) adds entropy that quantum computers can’t
+recover.</p>
+<p><strong>Defense in depth</strong>: Even if DH is compromised, PSK
+provides protection.</p>
+<h3 id="how-psk-is-used-in-handshake">How PSK is Used in Handshake</h3>
+<p>From the code (handshake.go):</p>
+<div class="sourceCode" id="cb31"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co">// After DH operations, mix in PSK</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> presharedKey is set <span class="op">{</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>    chainingKey<span class="op">,</span> tau<span class="op">,</span> tempKey <span class="op">=</span> kdf3<span class="op">(</span>chainingKey<span class="op">,</span> presharedKey<span class="op">)</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>    hash <span class="op">=</span> HASH<span class="op">(</span>hash <span class="op">||</span> tau<span class="op">)</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><strong>Step by step</strong>:</p>
+<ol type="1">
+<li>Complete all DH operations first</li>
+<li>Use kdf3 to mix PSK into chainingKey</li>
+<li>Get three outputs: new chainingKey, tau, and tempKey</li>
+<li>Mix tau into hash transcript</li>
+<li>Use tempKey to encrypt/decrypt next message</li>
+</ol>
+<h3 id="psk-in-message-flow">PSK in Message Flow</h3>
+<pre><code>Message 1 (initiation):
+- DH #1 and #2
+- No PSK yet
+
+Message 2 (response):
+- DH #3 and #4
+- Mix PSK (both sides have it)
+- Encrypt empty payload with PSK-derived key
+- If decryption succeeds → both have same PSK ✓</code></pre>
+<h3 id="when-to-use-psk">When to Use PSK</h3>
+<p><strong>Use PSK when</strong>: - You want post-quantum resistance -
+You can securely share a key out-of-band - You want additional security
+layer</p>
+<p><strong>Don’t use PSK when</strong>: - You can’t securely distribute
+the shared key - Key management overhead isn’t worth it</p>
+<h3 id="key-insight-8">Key Insight</h3>
+<p>PSK is optional but recommended for high-security scenarios. It’s
+mixed after DH operations, so it adds security without replacing public
+key crypto. Think of it as “belt and suspenders” - if one fails, the
+other protects you.</p>
+<hr />
+<h2 id="message-wire-format">13. Message Wire Format</h2>
+<h3 id="why-format-matters">Why Format Matters</h3>
+<p>Understanding the byte layout helps with: - Debugging (hex dumps make
+sense) - Implementation (correct parsing) - Optimization (avoiding
+allocations)</p>
+<h3 id="message-type-1-handshake-initiation-148-bytes">Message Type 1:
+Handshake Initiation (148 bytes)</h3>
+<pre><code> 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|     Type=1    |   Reserved    |          Reserved             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          Sender Index                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                    Ephemeral (32 bytes)                       +
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++              Encrypted Static (48 bytes)                      +
+|                    (32 bytes key + 16 bytes tag)              |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++            Encrypted Timestamp (28 bytes)                     +
+|                    (12 bytes time + 16 bytes tag)             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        MAC1 (16 bytes)                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        MAC2 (16 bytes)                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Total: 1 + 3 + 4 + 32 + 48 + 28 + 16 + 16 = 148 bytes</code></pre>
+<p><strong>Fields</strong>: - <strong>Type</strong>: Always 1 for
+initiation - <strong>Reserved</strong>: Must be zero (future use) -
+<strong>Sender Index</strong>: Initiator’s chosen index (identifies this
+session) - <strong>Ephemeral</strong>: Initiator’s ephemeral public key
+(plaintext) - <strong>Encrypted Static</strong>: Initiator’s static
+public key (encrypted + auth tag) - <strong>Encrypted
+Timestamp</strong>: TAI64N timestamp (encrypted + auth tag) -
+<strong>MAC1</strong>: DoS protection (always present) -
+<strong>MAC2</strong>: Cookie (usually empty unless under load)</p>
+<h3 id="message-type-2-handshake-response-92-bytes">Message Type 2:
+Handshake Response (92 bytes)</h3>
+<pre><code> 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|     Type=2    |   Reserved    |          Reserved             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          Sender Index                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        Receiver Index                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                    Ephemeral (32 bytes)                       +
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                    Encrypted Empty (16 bytes)                 |
+|                         (just auth tag)                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        MAC1 (16 bytes)                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        MAC2 (16 bytes)                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Total: 1 + 3 + 4 + 4 + 32 + 16 + 16 + 16 = 92 bytes</code></pre>
+<p><strong>Fields</strong>: - <strong>Type</strong>: Always 2 for
+response - <strong>Sender Index</strong>: Responder’s chosen index -
+<strong>Receiver Index</strong>: Initiator’s index (from message 1) -
+<strong>Ephemeral</strong>: Responder’s ephemeral public key (plaintext)
+- <strong>Encrypted Empty</strong>: AEAD tag proving responder completed
+handshake - <strong>MAC1/MAC2</strong>: DoS protection</p>
+<h3 id="message-type-4-transport-data-variable">Message Type 4:
+Transport Data (variable)</h3>
+<pre><code> 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|     Type=4    |   Reserved    |          Reserved             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        Receiver Index                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                       Counter (8 bytes)                       +
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++               Encrypted Packet (variable)                     +
+|                   (payload + 16 byte auth tag)                |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Minimum: 1 + 3 + 4 + 8 + 16 = 32 bytes (empty payload)</code></pre>
+<h3 id="why-these-sizes">Why These Sizes?</h3>
+<p><strong>Fixed sizes for handshake</strong>: - Prevents timing attacks
+(all handshakes same size) - Simple parsing (no length fields needed) -
+Predictable bandwidth</p>
+<p><strong>Variable size for transport</strong>: - Accommodates any IP
+packet size - Adds minimal overhead (32 bytes)</p>
+<h3 id="key-insight-9">Key Insight</h3>
+<p>Wire format is carefully designed. Fixed-size handshake messages
+prevent information leakage. Minimal overhead on transport. Every byte
+has a purpose - no wasted space.</p>
+<hr />
+<h2 id="practical-debugging">14. Practical Debugging</h2>
+<h3 id="adding-debug-logging">Adding Debug Logging</h3>
+<p>To understand handshake state, add logging at key points:</p>
+<div class="sourceCode" id="cb36"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co">// In CreateMessageInitiation</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>log<span class="op">.</span>Printf<span class="op">(</span><span class="st">&quot;=== INITIATOR: Creating Message 1 ===&quot;</span><span class="op">)</span></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>log<span class="op">.</span>Printf<span class="op">(</span><span class="st">&quot;Chaining Key: %x&quot;</span><span class="op">,</span> state<span class="op">.</span>chainingKey<span class="op">[:</span><span class="dv">8</span><span class="op">])</span></span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>log<span class="op">.</span>Printf<span class="op">(</span><span class="st">&quot;Hash: %x&quot;</span><span class="op">,</span> state<span class="op">.</span>hash<span class="op">[:</span><span class="dv">8</span><span class="op">])</span></span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>log<span class="op">.</span>Printf<span class="op">(</span><span class="st">&quot;Ephemeral Pub: %x&quot;</span><span class="op">,</span> state<span class="op">.</span>ephemeralPublic<span class="op">[:</span><span class="dv">8</span><span class="op">])</span></span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a><span class="co">// After each DH</span></span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a>log<span class="op">.</span>Printf<span class="op">(</span><span class="st">&quot;After DH #1: chainingKey=%x&quot;</span><span class="op">,</span> state<span class="op">.</span>chainingKey<span class="op">[:</span><span class="dv">8</span><span class="op">])</span></span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a>log<span class="op">.</span>Printf<span class="op">(</span><span class="st">&quot;After DH #2: chainingKey=%x&quot;</span><span class="op">,</span> state<span class="op">.</span>chainingKey<span class="op">[:</span><span class="dv">8</span><span class="op">])</span></span></code></pre></div>
+<p><strong>Pro tip</strong>: Only log first 8 bytes to keep output
+readable.</p>
+<h3 id="comparing-initiator-vs-responder">Comparing Initiator vs
+Responder</h3>
+<p><strong>Critical checkpoints</strong> where values must match:</p>
+<pre><code>After Message 1 processed by responder:
+✓ hash should match initiator&#39;s hash
+✓ chainingKey should match initiator&#39;s chainingKey
+
+After Message 2 processed by initiator:
+✓ Both should have same final chainingKey
+✓ Both should derive same sendKey/recvKey (but swapped)</code></pre>
+<h3 id="testing-state-sync">Testing State Sync</h3>
+<div class="sourceCode" id="cb38"><pre
+class="sourceCode go"><code class="sourceCode go"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co">// In tests, save state at each step</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>initiatorState <span class="op">:=</span> SaveState<span class="op">(</span>initiator<span class="op">)</span></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>responderState <span class="op">:=</span> SaveState<span class="op">(</span>responder<span class="op">)</span></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Compare</span></span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">!</span>bytes<span class="op">.</span>Equal<span class="op">(</span>initiatorState<span class="op">.</span>hash<span class="op">,</span> responderState<span class="op">.</span>hash<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>    t<span class="op">.</span>Errorf<span class="op">(</span><span class="st">&quot;Hash mismatch after message 1&quot;</span><span class="op">)</span></span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a>    t<span class="op">.</span>Logf<span class="op">(</span><span class="st">&quot;Initiator: %x&quot;</span><span class="op">,</span> initiatorState<span class="op">.</span>hash<span class="op">)</span></span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a>    t<span class="op">.</span>Logf<span class="op">(</span><span class="st">&quot;Responder: %x&quot;</span><span class="op">,</span> responderState<span class="op">.</span>hash<span class="op">)</span></span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="common-handshake-failures">Common Handshake Failures</h3>
+<p><strong>“MAC validation failed”</strong>: - Wrong peer public key in
+config - MAC1 computation incorrect - Message corrupted in transit</p>
+<p><strong>“Decryption failed”</strong>: - ChainingKey out of sync
+(missed DH operation) - Hash transcript mismatch (missed mixHash call) -
+Wrong key used for decryption</p>
+<p><strong>“Timestamp too old”</strong>: - Clock skew between peers -
+Replay protection triggered - Timestamp not in TAI64N format</p>
+<p><strong>“No response received”</strong>: - Network issue (firewall,
+NAT) - Responder rejected (under DoS load, requires MAC2) - Endpoint
+incorrect</p>
+<h3 id="debugging-with-wireshark">Debugging with Wireshark</h3>
+<p>WireGuard packets are encrypted, but you can see: - Packet sizes (148
+for init, 92 for response) - Message types (first byte) - Timing (detect
+retransmissions)</p>
+<h3 id="using-go-debugger-delve">Using Go Debugger (delve)</h3>
+<div class="sourceCode" id="cb39"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set breakpoint in handshake</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a><span class="ex">dlv</span> test ./device</span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="ex">dlv</span><span class="kw">)</span> <span class="cf">break</span> <span class="ex">handshake.go:CreateMessageInitiation</span></span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="ex">dlv</span><span class="kw">)</span> <span class="cf">continue</span></span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="ex">dlv</span><span class="kw">)</span> <span class="ex">print</span> state.chainingKey</span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="ex">dlv</span><span class="kw">)</span> <span class="ex">print</span> state.hash</span></code></pre></div>
+<h3 id="key-insight-10">Key Insight</h3>
+<p>Debugging handshakes requires patience. Add logging, compare states
+at each step, and verify values match. Most issues are simple (wrong
+key, missed operation) but hard to spot without visibility into internal
+state.</p>
+<hr />
+<h2 id="attack-scenarios-and-mitigations">15. Attack Scenarios and
+Mitigations</h2>
+<h3 id="attack-1-passive-eavesdropping">Attack 1: Passive
+Eavesdropping</h3>
+<p><strong>Attacker</strong>: Listens to all traffic, records
+everything</p>
+<p><strong>What they see</strong>: - Handshake messages (encrypted
+static keys, timestamps) - Transport packets (all encrypted) - Timing,
+sizes, endpoints</p>
+<p><strong>What they CAN’T get</strong>: - Plaintext data (encryption) -
+Static keys (encrypted with DH-derived keys) - Session keys (require
+private keys)</p>
+<p><strong>Mitigation</strong>: All sensitive data encrypted. Even
+initiator identity is hidden from passive observers (only responder can
+decrypt static key).</p>
+<h3 id="attack-2-active-man-in-the-middle">Attack 2: Active
+Man-in-the-Middle</h3>
+<p><strong>Attacker</strong>: Sits between peers, tries to
+intercept/modify</p>
+<p><strong>Attempt 1: Modify handshake message</strong> - Change any
+byte in message 1 - Hash transcript changes - Responder’s AEAD
+decryption fails (auth tag mismatch) - Handshake aborted ✓</p>
+<p><strong>Attempt 2: Replay old handshake</strong> - Record valid
+message 1, replay later - Timestamp check fails (too old) - Replay
+protection triggers ✓</p>
+<p><strong>Attempt 3: Impersonate peer</strong> - Send message 1
+claiming to be Alice - Don’t have Alice’s private key - Can’t compute
+DH(static_alice, static_bob) - Responder’s decryption fails ✓</p>
+<p><strong>Mitigation</strong>: Authentication via DH, integrity via
+AEAD, freshness via timestamp. All three combined prevent MITM.</p>
+<h3 id="attack-3-what-if-we-remove-each-dh">Attack 3: What if We Remove
+Each DH?</h3>
+<p><strong>Remove DH #1 (ephemeral_i × static_r)</strong>: - Can’t
+derive tempKey1 - Can’t encrypt initiator’s static key - Identity hiding
+broken ❌ - Passive observers see who’s connecting</p>
+<p><strong>Remove DH #2 (static_i × static_r)</strong>: - No mutual
+authentication - Initiator doesn’t prove identity - Responder accepts
+anyone ❌</p>
+<p><strong>Remove DH #3 (ephemeral_i × ephemeral_r)</strong>: - No
+forward secrecy - If static keys leak later, can decrypt past sessions
+❌</p>
+<p><strong>Remove DH #4 (static_i × ephemeral_r)</strong>: - Responder’s
+ephemeral not bound to initiator - Potential unknown key-share attack
+❌</p>
+<p><strong>Conclusion</strong>: Every DH operation is essential. Remove
+any one → security property breaks.</p>
+<h3 id="attack-4-dos-amplification">Attack 4: DoS Amplification</h3>
+<p><strong>Without MAC1/MAC2</strong>:</p>
+<pre><code>Attacker → Server: Random garbage (1000 packets/sec)
+Server: Tries to process each one, wastes CPU
+Server: Crashes or becomes unresponsive</code></pre>
+<p><strong>With MAC1</strong>:</p>
+<pre><code>Attacker → Server: Random garbage
+Server: Validates MAC1, fails immediately (cheap check)
+Server: Drops packet, no expensive crypto</code></pre>
+<p><strong>With MAC2 (under load)</strong>:</p>
+<pre><code>Attacker → Server: Valid MAC1, spoofed IP
+Server: Sends cookie to spoofed IP (victim)
+Attacker: Never receives cookie, can&#39;t send MAC2
+Server: Rejects subsequent packets without MAC2</code></pre>
+<p><strong>Mitigation</strong>: Stateless cookies prevent resource
+exhaustion. Server only commits resources after validating sender can
+receive at that IP.</p>
+<h3 id="attack-5-replay-attack-in-detail">Attack 5: Replay Attack in
+Detail</h3>
+<p><strong>Scenario</strong>: Attacker records valid transport
+packet</p>
+<p><strong>Attempt to replay</strong>:</p>
+<pre><code>Original packet: counter=42, encrypted with nonce=42
+Replay same packet later
+Receiver: Checks counter against replay window
+Counter 42 already seen → REJECT ✓</code></pre>
+<p><strong>Why timestamp in handshake isn’t enough</strong>: - Handshake
+timestamp prevents replaying old handshakes - Transport packets need
+per-packet replay protection - Use counter + sliding window (see section
+on replay protection)</p>
+<h3 id="key-insight-11">Key Insight</h3>
+<p>WireGuard’s security comes from layered defenses. Each mechanism
+addresses specific threats. Understanding attacks helps you appreciate
+why each piece is necessary. Nothing is arbitrary - everything serves a
+purpose.</p>
+</body>
+</html>
