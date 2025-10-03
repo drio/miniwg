@@ -28,14 +28,13 @@ type MiniWG struct {
 	publicKey  [32]byte
 	peerKey    [32]byte
 
-	hasSession    bool
-	sendKey       [32]byte
-	recvKey       [32]byte
-	sendNonce     uint64
-	recvCounter   uint64
-	localIndex    uint32
-	peerIndex     uint32
-	lastHandshake time.Time
+	hasSession  bool
+	sendKey     [32]byte
+	recvKey     [32]byte
+	sendNonce   uint64
+	recvCounter uint64
+	localIndex  uint32
+	peerIndex   uint32
 
 	queuedPackets [][]byte // Packets waiting for session establishment
 
@@ -47,9 +46,7 @@ type MiniWG struct {
 	udp      conn.UDPConn
 	peerAddr *net.UDPAddr
 
-	rekeyTimer   *time.Timer
-	lastSent     time.Time
-	lastReceived time.Time
+	rekeyTimer *time.Timer
 
 	// Shutdown coordination (minimal approach for learning)
 	// Note: WireGuard-Go uses atomic state + WaitGroups + reference counting

@@ -42,12 +42,16 @@ func GenerateKeypair() ([32]byte, [32]byte, error) {
 
 // dhOperation performs Curve25519 point multiplication (ECDH)
 func dhOperation(privateKey, publicKey [32]byte) ([32]byte, error) {
-	var sharedSecret [32]byte
-
 	// Perform DH: privateKey * publicKey
-	curve25519.ScalarMult(&sharedSecret, &privateKey, &publicKey)
+	// Use X25519 instead of deprecated ScalarMult to properly handle low-order points
+	sharedSecret, err := curve25519.X25519(privateKey[:], publicKey[:])
+	if err != nil {
+		return [32]byte{}, err
+	}
 
-	return sharedSecret, nil
+	var result [32]byte
+	copy(result[:], sharedSecret)
+	return result, nil
 }
 
 // blake2sHash computes BLAKE2s hash (32 bytes output)

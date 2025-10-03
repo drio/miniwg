@@ -122,12 +122,12 @@ Result: Authenticated, encrypted, forward-secret session
 
 Before diving into crypto, understand what the handshake must achieve:
 
-**Ask yourself**: What would a "perfect" handshake do?
-- ✅ Prove both parties are who they claim (authentication)
-- ✅ Derive a shared secret only they know (key agreement)
-- ✅ Protect past sessions if keys leak later (forward secrecy)
-- ✅ Hide who's talking to whom (identity hiding)
-- ✅ Prevent replay attacks (freshness)
+**Ask yourself**: What would a "perfect" handshake do? <br/>
+- ✅ Prove both parties are who they claim (authentication) <br/>
+- ✅ Derive a shared secret only they know (key agreement) <br/>
+- ✅ Protect past sessions if keys leak later (forward secrecy) <br/>
+- ✅ Hide who's talking to whom (identity hiding) <br/>
+- ✅ Prevent replay attacks (freshness) <br/>
 - ✅ Be fast and simple
 
 **Exercise**: Write down these goals. For each line of handshake code,
@@ -638,10 +638,71 @@ Ask yourself:
 
 ### "Why So Many Keys?"
 
-**Think in layers**:
+We generate many keys during the handshake but only use two (sendKey,
+recvKey) for transport. Here's why:
+
+**Keys generated during handshake:**
+
+1. **Ephemeral private/public keys** (2 pairs - one per peer)
+   - Purpose: Forward secrecy
+   - Used for: DH operations, then DELETED after handshake
+   - Why: If your static key leaks later, past sessions remain secure
+
+2. **tempKey1** (first encryption key)
+   - Purpose: Encrypt initiator's static public key in Message 1
+   - Source: Derived from `kdf2(chainingKey, DH_result_1)`
+   - Why: Single-use key for encrypting identity (identity hiding)
+   - Used once, then discarded
+
+3. **tempKey2** (second encryption key)
+   - Purpose: Encrypt timestamp in Message 1
+   - Source: Derived from `kdf2(chainingKey, DH_result_2)`
+   - Why: Single-use key for encrypting timestamp (freshness)
+   - Used once, then discarded
+
+4. **tempKey3** (third encryption key, in Message 2)
+   - Purpose: Encrypt empty payload in Message 2 (or with PSK)
+   - Source: Derived from `kdf3(chainingKey, psk)` if PSK present
+   - Why: Proves responder completed handshake correctly
+   - Used once, then discarded
+
+5. **Transport keys** (sendKey, recvKey)
+   - Purpose: Encrypt actual data packets after handshake
+   - Source: Final `kdf2(chainingKey, nil)` using ALL accumulated secrets
+   - Why: These are the only keys that persist and encrypt your traffic
+
+**Why so many temporary keys?**
+
+Each step in the handshake encrypts different data with a **fresh,
+single-use key**:
+
+- Prevents key reuse attacks
+- Each encryption has independent security
+- If one step fails, doesn't compromise others
+- Follows Noise protocol's key ratcheting pattern
+
+**The pattern:**
+
+```
+DH operation → derive tempKey → encrypt one thing → discard tempKey → repeat
+```
+
+**Think of it like this:**
+
+- Temporary keys = scaffolding while building a house (removed after)
+- Transport keys = the actual house you live in
+
+The many temporary keys are part of the **key derivation chain** - each
+adds security properties (authentication, identity hiding, freshness) but
+we only keep the final transport keys because they contain all the
+accumulated entropy from every DH operation.
+
+**Summary in layers:**
+
 - **Ephemeral keys**: Temporary (forward secrecy)
 - **Static keys**: Permanent (authentication)
-- **Encryption keys** (tempKey1, tempKey2): Single-use (from DH results)
+- **Temporary encryption keys** (tempKey1, tempKey2, tempKey3):
+  Single-use (from DH results)
 - **Transport keys**: Final (from complete chainingKey)
 
 **Each layer serves a purpose**. Draw boxes and arrows to visualize.
@@ -712,18 +773,21 @@ handshakes from scratch, you pick a proven pattern.
 
 Think of it like LEGO instructions - different patterns for different needs.
 
-### WireGuard Uses Noise_IK
+### WireGuard Uses Noise_IKpsk2
 
-**IK = Identity + Known**
+**IKpsk2 = Identity + Known + Pre-Shared Key (mixed at stage 2)**
 
 - **I (Identity)**: Initiator sends their static key (encrypted)
 - **K (Known)**: Responder's static key is known in advance
+- **psk2**: Pre-shared key mixed in after the second DH operation
 
-**Why IK?**
+**Why IKpsk2?**
+
 - Initiator must know responder's public key before starting
 - Provides identity hiding (initiator's identity is encrypted)
 - One round-trip handshake (fast!)
 - Mutual authentication
+- Optional PSK for post-quantum security
 
 ### Other Noise Patterns (for context)
 
@@ -735,36 +799,84 @@ Think of it like LEGO instructions - different patterns for different needs.
 - One-way authentication
 - Used when server authenticates to client, but not vice versa
 
-**IK (WireGuard's choice)**:
+**IKpsk2 (WireGuard's choice)**:
+
 - Both authenticate
 - Fast (1 round trip)
 - Initiator identity hidden from passive observers
+- PSK optional (degrades to plain IK when not configured)
 
-### The IK Message Pattern
+### The IKpsk2 Message Pattern
 
 ```
 → e, es, s, ss
-← e, ee, se
+← e, ee, se, psk
 ```
 
 **Message 1 (initiator → responder)**:
+
 - `e`: Send ephemeral public key
 - `es`: DH(ephemeral_i, static_r) - mix into key
 - `s`: Send static public key (encrypted with key from `es`)
 - `ss`: DH(static_i, static_r) - mix into key
 
 **Message 2 (responder → initiator)**:
+
 - `e`: Send ephemeral public key
 - `ee`: DH(ephemeral_i, ephemeral_r) - mix into key
 - `se`: DH(static_i, ephemeral_r) - mix into key
+- `psk`: Mix pre-shared key (if configured)
 
-This notation directly maps to the 4 DH operations in WireGuard!
+This notation directly maps to the 4 DH operations + PSK mixing in
+WireGuard!
+
+### What Noise Guarantees
+
+The Noise Protocol Framework provides **cryptographic recipes that are known
+to work** - each pattern has been **formally verified** using cryptographic
+proofs and automated verification tools.
+
+**What Noise provides:**
+
+1. **Proven patterns** - Mathematical proofs that patterns provide claimed
+   security properties (authentication, confidentiality, forward secrecy)
+
+2. **Known security properties** - Each pattern comes with documented
+   security profile: what it protects against, what guarantees it provides
+
+3. **Implementation guidance** - Precise specification of how to implement
+   each pattern correctly (order of operations, when to mix keys, etc.)
+
+**Noise patterns are proven secure IF:**
+
+- ✅ You implement them correctly (no bugs)
+- ✅ Underlying primitives are secure (Curve25519, ChaCha20-Poly1305,
+  BLAKE2s)
+- ✅ You don't deviate from the pattern
+- ✅ You handle surrounding protocol correctly (transport, replay
+  protection, etc.)
+
+**Noise gives you:**
+
+- ✅ A proven recipe that's cryptographically sound
+- ✅ Protection from common protocol design mistakes
+- ✅ Formal verification that the pattern works as claimed
+
+**Noise doesn't protect you from:**
+
+- ❌ Implementation bugs (buffer overflows, timing attacks, etc.)
+- ❌ Side-channel attacks (if you implement crypto primitives poorly)
+- ❌ Issues outside the handshake (like weak replay protection)
+
+**Think of it like a recipe from a Michelin-star chef** - the recipe is
+proven to work, but you still need to execute it correctly in your kitchen.
 
 ### Key Insight
 
-Noise_IK gives WireGuard its security properties for free. Understanding
-IK helps you see why the handshake is structured this way - it's following
-a proven, formally verified pattern.
+Noise_IKpsk2 gives WireGuard its security properties for free. Understanding
+IKpsk2 helps you see why the handshake is structured this way - it's
+following a proven, formally verified pattern. The hard cryptographic work
+has been done and verified - WireGuard just needs to implement it correctly.
 
 ---
 

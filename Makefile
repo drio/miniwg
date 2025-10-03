@@ -9,7 +9,7 @@
 #   vet      - Run go vet
 #   security - Run security scans on packages
 
-.PHONY: all build test test-race clean run fmt vet security gosec vulncheck help docs
+.PHONY: all build test test-race clean run fmt vet lint security gosec vulncheck help learning install-lint-tools
 
 # Default target
 all: help
@@ -58,6 +58,16 @@ vet:
 	@echo "Running go vet..."
 	go vet ./device ./config ./conn ./tun ./test .
 
+# Install linting tools if needed
+install-lint-tools:
+	@echo "Installing linting tools..."
+	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+
+# Run golangci-lint
+lint: install-lint-tools
+	@echo "Running golangci-lint..."
+	golangci-lint run ./...
+
 # Security scanning targets
 
 # Install security tools if needed
@@ -80,18 +90,18 @@ security: gosec vulncheck
 	@echo "Security scanning complete"
 
 # Run all quality and security checks
-check: fmt vet test test-race security
+check: fmt vet lint test test-race security
 
 # Generate HTML documentation from markdown
-docs:
+learning:
 	@echo "Generating HTML documentation..."
 	@which pandoc > /dev/null || (echo "Error: pandoc not installed. Install with: apt-get install pandoc or brew install pandoc" && exit 1)
-	pandoc learning/learning-handshake.md -o learning/learning-handshake.html \
+	pandoc docs/learning-handshake.md -o docs/learning-handshake.html \
 		--standalone \
 		--toc \
 		--css=https://cdn.simplecss.org/simple.min.css
-	@echo "Documentation generated: learning/learning-handshake.html"
-	@echo "Open in browser: file://$(PWD)/learning/learning-handshake.html"
+	@echo "Documentation generated: docs/learning-handshake.html"
+	@echo "Open in browser: file://$(PWD)/docs/learning-handshake.html"
 
 # Show available targets
 help:
@@ -104,9 +114,10 @@ help:
 	@echo "  run           - Build and run miniwg"
 	@echo "  fmt           - Format Go code"
 	@echo "  vet           - Run go vet"
+	@echo "  lint          - Run golangci-lint"
 	@echo "  gosec         - Run gosec security scanner"
 	@echo "  vulncheck     - Run vulnerability scanner"
 	@echo "  security      - Run all security checks"
-	@echo "  check         - Run fmt, vet, test, test-race, and security"
-	@echo "  docs          - Generate HTML from learning-handshake.md"
+	@echo "  check         - Run fmt, vet, lint, test, test-race, and security"
+	@echo "  learning      - Generate HTML from learning-handshake.md"
 	@echo "  help          - Show this help message"
