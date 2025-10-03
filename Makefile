@@ -99,7 +99,8 @@ learning:
 	pandoc docs/learning-handshake.md -o docs/learning-handshake.html \
 		--standalone \
 		--toc \
-		--css=https://cdn.simplecss.org/simple.min.css
+		--css=https://cdn.simplecss.org/simple.min.css \
+		--css=learning-style.css
 	@echo "Documentation generated: docs/learning-handshake.html"
 	@echo "Open in browser: file://$(PWD)/docs/learning-handshake.html"
 

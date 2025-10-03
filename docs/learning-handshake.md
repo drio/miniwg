@@ -562,7 +562,96 @@ The handshake is a carefully choreographed dance where both parties:
 
 ---
 
-## 7. Learning Strategy
+## 7. Handshake in Detail - Step by Step
+
+This section walks through each of the four handshake functions, showing
+exactly what happens at each step with actual variable names from the code.
+
+### Part 1/4: CreateMessageInitiation()
+
+The initiator creates the first handshake message. This function performs
+2 DH operations and encrypts the initiator's identity.
+
+---
+
+**INITIALIZATION - Start with protocol constants**
+
+**Step 1:** Initialize state (set state.chainingKey and state.hash)<br/>
+
+---
+
+**BIND TO PEER - Record who we're talking to**
+
+**Step 2:** Mix peerStaticPub into state.hash<br/>
+
+---
+
+**EPHEMERAL SETUP - Create temporary keys for forward secrecy**
+
+**Step 3:** Generate state.ephemeralPrivate, state.ephemeralPublic<br/>
+**Step 4:** Mix state.ephemeralPublic into state.hash<br/>
+**Step 5:** Mix state.ephemeralPublic into state.chainingKey via kdf1<br/>
+
+---
+
+**DH #1 - Hide initiator identity (only responder can decrypt)**
+
+**Step 6:** DH #1: dhOperation(state.ephemeralPrivate,
+state.peerStaticPublic) → dhResult1<br/>
+**Step 7:** kdf2(state.chainingKey, dhResult1) → state.chainingKey,
+state.tempKey1<br/>
+**Step 8:** Encrypt state.ourStaticPublic with state.tempKey1 →
+state.encryptedStatic<br/>
+**Step 9:** Mix state.encryptedStatic into state.hash<br/>
+
+---
+
+**DH #2 - Mutual authentication + replay protection**
+
+**Step 10:** DH #2: dhOperation(state.ourStaticPrivate,
+state.peerStaticPublic) → dhResult2<br/>
+**Step 11:** kdf2(state.chainingKey, dhResult2) → state.chainingKey,
+state.tempKey2<br/>
+**Step 12:** Generate timestamp<br/>
+**Step 13:** Encrypt timestamp with state.tempKey2 →
+state.encryptedTimestamp<br/>
+**Step 14:** Mix state.encryptedTimestamp into state.hash<br/>
+
+---
+
+**FINALIZE - Package and protect message**
+
+**Step 15:** Marshal message (HandshakeInitiation)<br/>
+**Step 16:** Compute MAC1 (DoS protection - prove we know peer's key)<br/>
+**Step 17:** MAC2 set to zero (normal case - no cookie yet)<br/>
+**Step 18:** Return message + state<br/>
+
+---
+
+**Key Observations:**
+
+- **Chaining key grows** like a snowball: Initial → +ephemeral → +DH1 →
+  +DH2
+- **Hash transcript** records everything: peer key, ephemeral, encrypted
+  payloads
+- **Two temp keys** (tempKey1, tempKey2) used once each, then discarded
+- **State saved** for processing the response (contains chainingKey, hash,
+  ephemeral keys)
+
+**What gets sent to responder:**
+
+- Sender index (our chosen ID)
+- Ephemeral public key (plaintext)
+- Encrypted static public key (48 bytes: 32 data + 16 auth tag)
+- Encrypted timestamp (28 bytes: 12 data + 16 auth tag)
+- MAC1 (16 bytes)
+- MAC2 (16 bytes, all zeros)
+
+Total: 148 bytes
+
+---
+
+## 8. Learning Strategy
 
 ### Build Understanding Incrementally
 

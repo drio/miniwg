@@ -91,6 +91,7 @@
     code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
   </style>
   <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css" />
+  <link rel="stylesheet" href="learning-style.css" />
 </head>
 <body>
 <nav id="TOC" role="doc-toc">
@@ -194,7 +195,15 @@ id="toc-the-four-dh-operations">The Four DH Operations</a></li>
 <li><a href="#message-flow" id="toc-message-flow">Message Flow</a></li>
 <li><a href="#key-insight-5" id="toc-key-insight-5">Key Insight</a></li>
 </ul></li>
-<li><a href="#learning-strategy" id="toc-learning-strategy">7. Learning
+<li><a href="#handshake-in-detail---step-by-step"
+id="toc-handshake-in-detail---step-by-step">7. Handshake in Detail -
+Step by Step</a>
+<ul>
+<li><a href="#part-14-createmessageinitiation"
+id="toc-part-14-createmessageinitiation">Part 1/4:
+CreateMessageInitiation()</a></li>
+</ul></li>
+<li><a href="#learning-strategy" id="toc-learning-strategy">8. Learning
 Strategy</a>
 <ul>
 <li><a href="#build-understanding-incrementally"
@@ -798,7 +807,80 @@ parties:</p>
 <li>Derive transport keys (ready to encrypt data)</li>
 </ol>
 <hr />
-<h2 id="learning-strategy">7. Learning Strategy</h2>
+<h2 id="handshake-in-detail---step-by-step">7. Handshake in Detail -
+Step by Step</h2>
+<p>This section walks through each of the four handshake functions,
+showing exactly what happens at each step with actual variable names
+from the code.</p>
+<h3 id="part-14-createmessageinitiation">Part 1/4:
+CreateMessageInitiation()</h3>
+<p>The initiator creates the first handshake message. This function
+performs 2 DH operations and encrypts the initiator’s identity.</p>
+<hr />
+<p><strong>INITIALIZATION - Start with protocol constants</strong></p>
+<p><strong>Step 1:</strong> Initialize state (set state.chainingKey and
+state.hash)<br/></p>
+<hr />
+<p><strong>BIND TO PEER - Record who we’re talking to</strong></p>
+<p><strong>Step 2:</strong> Mix peerStaticPub into state.hash<br/></p>
+<hr />
+<p><strong>EPHEMERAL SETUP - Create temporary keys for forward
+secrecy</strong></p>
+<p><strong>Step 3:</strong> Generate state.ephemeralPrivate,
+state.ephemeralPublic<br/> <strong>Step 4:</strong> Mix
+state.ephemeralPublic into state.hash<br/> <strong>Step 5:</strong> Mix
+state.ephemeralPublic into state.chainingKey via kdf1<br/></p>
+<hr />
+<p><strong>DH #1 - Hide initiator identity (only responder can
+decrypt)</strong></p>
+<p><strong>Step 6:</strong> DH #1: dhOperation(state.ephemeralPrivate,
+state.peerStaticPublic) → dhResult1<br/> <strong>Step 7:</strong>
+kdf2(state.chainingKey, dhResult1) → state.chainingKey,
+state.tempKey1<br/> <strong>Step 8:</strong> Encrypt
+state.ourStaticPublic with state.tempKey1 → state.encryptedStatic<br/>
+<strong>Step 9:</strong> Mix state.encryptedStatic into
+state.hash<br/></p>
+<hr />
+<p><strong>DH #2 - Mutual authentication + replay
+protection</strong></p>
+<p><strong>Step 10:</strong> DH #2: dhOperation(state.ourStaticPrivate,
+state.peerStaticPublic) → dhResult2<br/> <strong>Step 11:</strong>
+kdf2(state.chainingKey, dhResult2) → state.chainingKey,
+state.tempKey2<br/> <strong>Step 12:</strong> Generate timestamp<br/>
+<strong>Step 13:</strong> Encrypt timestamp with state.tempKey2 →
+state.encryptedTimestamp<br/> <strong>Step 14:</strong> Mix
+state.encryptedTimestamp into state.hash<br/></p>
+<hr />
+<p><strong>FINALIZE - Package and protect message</strong></p>
+<p><strong>Step 15:</strong> Marshal message (HandshakeInitiation)<br/>
+<strong>Step 16:</strong> Compute MAC1 (DoS protection - prove we know
+peer’s key)<br/> <strong>Step 17:</strong> MAC2 set to zero (normal case
+- no cookie yet)<br/> <strong>Step 18:</strong> Return message +
+state<br/></p>
+<hr />
+<p><strong>Key Observations:</strong></p>
+<ul>
+<li><strong>Chaining key grows</strong> like a snowball: Initial →
++ephemeral → +DH1 → +DH2</li>
+<li><strong>Hash transcript</strong> records everything: peer key,
+ephemeral, encrypted payloads</li>
+<li><strong>Two temp keys</strong> (tempKey1, tempKey2) used once each,
+then discarded</li>
+<li><strong>State saved</strong> for processing the response (contains
+chainingKey, hash, ephemeral keys)</li>
+</ul>
+<p><strong>What gets sent to responder:</strong></p>
+<ul>
+<li>Sender index (our chosen ID)</li>
+<li>Ephemeral public key (plaintext)</li>
+<li>Encrypted static public key (48 bytes: 32 data + 16 auth tag)</li>
+<li>Encrypted timestamp (28 bytes: 12 data + 16 auth tag)</li>
+<li>MAC1 (16 bytes)</li>
+<li>MAC2 (16 bytes, all zeros)</li>
+</ul>
+<p>Total: 148 bytes</p>
+<hr />
+<h2 id="learning-strategy">8. Learning Strategy</h2>
 <h3 id="build-understanding-incrementally">Build Understanding
 Incrementally</h3>
 <p><strong>Week 1: Primitives</strong> - Study DH in isolation
